@@ -10,11 +10,20 @@ namespace coat {
 template<class T>
 struct Ptr<::llvm::IRBuilder<>,T> {
 	using F = ::llvm::IRBuilder<>;
-	using value_type = typename T::value_type;
+	using value_type = std::remove_pointer_t<T>;
 	using value_base_type = ValueBase<F>;
-	using mem_type = Ref<F,T>;
+//	using mem_type = Ref<F,T>;
+    // TODO *pptr2 = ptr1 should result in **pptr2 = *ptr1
+    //  A solution can be adding an specific Ref for pointer type.
+    //  This is necessary because pointers don't support <, <=, >, >=
+    using mem_type = std::conditional_t<std::is_pointer_v<value_type>,
+            Ptr<F, value_type>, Ref<F,Value<F, value_type>>
+    >;
 
-	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of register wrappers");
+//	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of register wrappers");
+    // Assert that T is a pointer
+    // TODO assert that is pointer to integer
+    static_assert(std::is_pointer<T>::value, "Only pointer types supported");
 
 	llvm::IRBuilder<> &cc;
 	llvm::Value *memreg;
@@ -44,6 +53,11 @@ struct Ptr<::llvm::IRBuilder<>,T> {
 	}
 	// move, just take the stack memory
 	Ptr(const Ptr &&other) : cc(other.cc), memreg(other.memreg) {}
+
+    // For when initalizing with references
+    Ptr(F &cc, llvm::Value *mem) : Ptr(cc) {
+        store(cc.CreateLoad(mem, "load"));
+    }
 
 	//FIXME: takes any type
 	Ptr &operator=(llvm::Value *val){ store( val ); return *this; }
@@ -131,12 +145,12 @@ struct Ptr<::llvm::IRBuilder<>,T> {
 
 
 template<typename dest_type, typename src_type>
-Ptr<::llvm::IRBuilder<>,Value<::llvm::IRBuilder<>,std::remove_pointer_t<dest_type>>>
-cast(const Ptr<::llvm::IRBuilder<>,Value<::llvm::IRBuilder<>,src_type>> &src){
+Ptr<::llvm::IRBuilder<>,dest_type>
+cast(const Ptr<::llvm::IRBuilder<>,src_type> &src){
 	static_assert(std::is_pointer_v<dest_type>, "a pointer type can only be casted to another pointer type");
 
 	// create new pointer
-	Ptr<::llvm::IRBuilder<>,Value<::llvm::IRBuilder<>,std::remove_pointer_t<dest_type>>> res(src.cc);
+	Ptr<::llvm::IRBuilder<>,dest_type> res(src.cc);
 	// cast between pointer types
 	res.store(
 		src.cc.CreateBitCast(

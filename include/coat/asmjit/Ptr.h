@@ -12,11 +12,20 @@ namespace coat {
 template<class T>
 struct Ptr<::asmjit::x86::Compiler,T>{
 	using F = ::asmjit::x86::Compiler;
-	using value_type = typename T::value_type;
+    using value_type = std::remove_pointer_t<T>;
 	using value_base_type = ValueBase<F>;
-	using mem_type = Ref<F,T>;
+// 	using mem_type = Ref<F,T>;
+    // TODO *pptr2 = ptr1 should result in **pptr2 = *ptr1
+    //  A solution can be adding an specific Ref for pointer type.
+    //  This is necessary because pointers don't support <, <=, >, >=
+    using mem_type = std::conditional_t<std::is_pointer_v<value_type>,
+            Ptr<F, value_type>, Ref<F,Value<F, value_type>>
+    >;
 
-	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of value wrappers");
+//	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of value wrappers");
+    // Assert that T is a pointer
+    // TODO assert that is pointer to integer
+    static_assert(std::is_pointer<T>::value, "Only pointer types supported");
 
 	::asmjit::x86::Compiler &cc; //FIXME: pointer stored in every value type
 	::asmjit::x86::Gp reg;
@@ -39,6 +48,9 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 	Ptr(F &cc, const value_type *val, const char *name="") : Ptr(cc, name) {
 		*this = const_cast<value_type*>(val);
 	}
+    Ptr(F &cc, ::asmjit::x86::Mem mem) : Ptr(cc) {
+            cc.mov(reg, mem);
+    }
 #endif
 
 	// real copy requires new register and copy of content
@@ -145,13 +157,13 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 
 
 template<typename dest_type, typename src_type>
-Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,std::remove_pointer_t<dest_type>>>
-cast(const Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,src_type>> &src){
+Ptr<::asmjit::x86::Compiler,dest_type>
+cast(const Ptr<::asmjit::x86::Compiler,src_type> &src){
 	static_assert(std::is_pointer_v<dest_type>, "a pointer type can only be casted to another pointer type");
 
 	//TODO: find a way to do it without copies but no surprises for user
 	// create new pointer with new register
-	Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,std::remove_pointer_t<dest_type>>> res(src.cc);
+	Ptr<::asmjit::x86::Compiler,dest_type> res(src.cc);
 	// copy pointer address between registers
 	src.cc.mov(res.reg, src.reg);
 	// return new pointer

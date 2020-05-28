@@ -1,4 +1,4 @@
-#ifndef COAT_LLVMJIT_CONTROLFLOW_H_
+ #ifndef COAT_LLVMJIT_CONTROLFLOW_H_
 #define COAT_LLVMJIT_CONTROLFLOW_H_
 
 
@@ -253,7 +253,7 @@ FunctionCall(llvm::IRBuilder<> &cc, const InternalFunction<runtimellvmjit,R(*)(A
 
 // pointer difference in bytes, no pointer arithmetic (used by Ptr operators)
 template<typename T>
-Value<::llvm::IRBuilder<>,size_t> distance(::llvm::IRBuilder<> &cc, Ptr<::llvm::IRBuilder<>,Value<::llvm::IRBuilder<>,T>> &beg, Ptr<::llvm::IRBuilder<>,Value<::llvm::IRBuilder<>,T>> &end){
+Value<::llvm::IRBuilder<>,size_t> distance(::llvm::IRBuilder<> &cc, Ptr<::llvm::IRBuilder<>,T> &beg, Ptr<::llvm::IRBuilder<>,T> &end){
 	Value<::llvm::IRBuilder<>,size_t> vr_ret(cc, "distance");
 	llvm::Value *int_beg = cc.CreatePtrToInt(beg.load(), llvm::Type::getInt64Ty(cc.getContext()));
 	llvm::Value *int_end = cc.CreatePtrToInt(end.load(), llvm::Type::getInt64Ty(cc.getContext()));

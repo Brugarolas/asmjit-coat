@@ -12,10 +12,11 @@ template<typename T, unsigned width>
 struct Vector<::asmjit::x86::Compiler,T,width> final {
 	using F = ::asmjit::x86::Compiler;
 	using value_type = T;
-	
+
 	static_assert(sizeof(T)==1 || sizeof(T)==2 || sizeof(T)==4 || sizeof(T)==8,
-		"only plain arithmetic types supported of sizes: 1, 2, 4 or 8 bytes");
-	static_assert(std::is_signed_v<T> || std::is_unsigned_v<T>,
+                  "only plain arithmetic types supported of sizes: 1, 2, 4 or 8 bytes");
+    // TODO assert is arithmetic
+    static_assert(std::is_signed_v<T> || std::is_unsigned_v<T>,
 		"only plain signed or unsigned arithmetic types supported");
 	static_assert(sizeof(T)*width == 128/8 || sizeof(T)*width == 256/8,
 		"only 128-bit and 256-bit vector instructions supported at the moment");

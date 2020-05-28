@@ -49,6 +49,11 @@ public:
 	std::vector<llvm::Function*> functions;
 	// latest function, which is currently generated
 	llvm::Function *jit_func;
+	std::unordered_map<std::string, void*> runtime_functions{};
+
+	void register_runtime_function(std::string name, void* function_symbol) {
+	    runtime_functions.insert({name, function_symbol});
+	}
 
 private:
 	std::unique_ptr<llvm::TargetMachine> tm;
@@ -113,6 +118,10 @@ public:
 					return sym;
 				}else if(auto err = sym.takeError()){
 					return std::move(err);
+				}
+				if (auto sym = runtime_functions.find(name); sym != runtime_functions.end()) {
+                    return llvm::JITEvaluatedSymbol(static_cast<llvm::JITTargetAddress>(reinterpret_cast<uintptr_t >(sym->second)), llvm::JITSymbolFlags::Exported);
+//                    return llvm::JITSymbol(sym->second, llvm::JITSymbolFlags::Exported);
 				}
 				if(auto symaddr = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)){
 					return llvm::JITSymbol(symaddr, llvm::JITSymbolFlags::Exported);
