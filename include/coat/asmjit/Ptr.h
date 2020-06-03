@@ -41,6 +41,9 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 	Ptr(F &cc, const value_type *val, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()) : Ptr(cc, name) {
 		*this = D<value_type*>{const_cast<value_type*>(val), file, line};
 	}
+    Ptr(F &cc, ::asmjit::x86::Mem mem, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()) : Ptr(cc) {
+        cc.mov(reg, mem);
+    }
 #else
 	Ptr(F &cc, value_type *val, const char *name="") : Ptr(cc, name) {
 		*this = val;

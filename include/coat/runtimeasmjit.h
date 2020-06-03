@@ -2,6 +2,7 @@
 #define COAT_RUNTIMEASMJIT_HPP_
 
 #include <asmjit/asmjit.h>
+#include <string>
 #if defined(PROFILING_ASSEMBLY) || defined(PROFILING_SOURCE)
 #	include <asmjit-utilities/perf/jitdump.h>
 #endif
@@ -30,6 +31,7 @@ struct runtimeasmjit{
 		jd.close();
 	}
 #endif
+  void register_runtime_function(std::string name, void* function_symbol) {}
 };
 
 } // namespace

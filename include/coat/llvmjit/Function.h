@@ -43,8 +43,8 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 
 
 	template<typename FuncSig>
-	InternalFunction<runtimellvmjit,FuncSig> addFunction(const char *name){
-		return InternalFunction<runtimellvmjit,FuncSig>(jit, cc, name);
+	InternalFunction<runtimellvmjit,FuncSig>* addFunction(const char *name){
+		return new InternalFunction<runtimellvmjit,FuncSig>(jit, cc, name);
 	}
 
 	template<class IFunc>

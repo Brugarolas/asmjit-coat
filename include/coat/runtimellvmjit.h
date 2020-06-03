@@ -49,14 +49,14 @@ public:
 	std::vector<llvm::Function*> functions;
 	// latest function, which is currently generated
 	llvm::Function *jit_func;
-	std::unordered_map<std::string, void*> runtime_functions{};
 
 	void register_runtime_function(std::string name, void* function_symbol) {
 	    runtime_functions.insert({name, function_symbol});
 	}
 
 private:
-	std::unique_ptr<llvm::TargetMachine> tm;
+  std::unordered_map<std::string, void*> runtime_functions{};
+  std::unique_ptr<llvm::TargetMachine> tm;
 	const llvm::DataLayout dl;
 	llvm::orc::RTDyldObjectLinkingLayer ObjectLayer;
 	llvm::orc::IRCompileLayer<decltype(ObjectLayer), llvm::orc::SimpleCompiler> CompileLayer;
