@@ -23,15 +23,12 @@ using reg_type = std::conditional_t<std::is_pointer_v<T>,
 						Value<F,std::remove_cv_t<T>>
 				>;
 
-// TODO what does decay_t do?
-// TODO Struct** ...
 // decay - converts array types to pointer types
 template<typename F, typename T>
 using wrapper_type = std::conditional_t<std::is_pointer_v<std::remove_pointer_t<std::decay_t<T>>>
         || std::is_arithmetic_v<std::remove_pointer_t<std::decay_t<T>>>,
 						reg_type<F,std::decay_t<T>>,
-						T
-//						Struct<F,std::remove_cv_t<std::remove_pointer_t<T>>>
+						Struct<F,std::remove_cv_t<std::remove_pointer_t<T>>>
 					>;
 
 #ifdef ENABLE_LLVMJIT
@@ -71,10 +68,8 @@ inline llvm::Type *getLLVMType(llvm::LLVMContext &ctx){
 			}else{
 				static_assert(should_not_be_reached<T>, "type not supported");
 			}
-//		} else if (std::is_pointer_v<base_type>) {
         } else {
             return llvm::Type::getInt64PtrTy(ctx);
-//            return llvm::PointerType::get(getLLVMStructType<base_type>(ctx), 0);
 		}
 	}else if constexpr(std::is_array_v<T>){
 		static_assert(std::rank_v<T> == 1, "multidimensional arrays are not supported");

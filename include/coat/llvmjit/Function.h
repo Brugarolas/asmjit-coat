@@ -5,7 +5,6 @@
 
 #include <tuple> // apply
 
-
 namespace coat {
 
 template<typename R, typename ...Args>

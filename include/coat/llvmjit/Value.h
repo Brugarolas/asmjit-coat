@@ -43,7 +43,8 @@ struct Value<llvm::IRBuilder<>,T> final : public ValueBase<llvm::IRBuilder<>> {
 	}
 	// move, just take the stack memory
 	Value(const Value &&other) : ValueBase(std::move(other)) {}
-	// move assign, just take stack memory location, copy of wrapper object
+
+  	// move assign, just take stack memory location, copy of wrapper object
 	Value &operator=(const Value &&other){ memreg = other.memreg; return *this; }
 
 	// copy ctor for ref

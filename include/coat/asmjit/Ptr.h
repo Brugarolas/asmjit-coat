@@ -10,7 +10,7 @@
 namespace coat {
 
 template<class T>
-struct Ptr<::asmjit::x86::Compiler,T>{
+struct Ptr<::asmjit::x86::Compiler,T> {
 	using F = ::asmjit::x86::Compiler;
     using value_type = std::remove_pointer_t<T>;
 	using value_base_type = ValueBase<F>;
@@ -95,6 +95,17 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, idx.reg, clog2(sizeof(value_type)))};
 		}
 	}
+
+	// TODO hack to allow setting vector of pointers (*pptr1 = ptr2)
+	Ref<F, Ptr<F, value_type>> bracket(const value_base_type &idx) {
+      switch(sizeof(value_type)){
+        case 1: return {cc, ::asmjit::x86::byte_ptr (reg, idx.reg, clog2(sizeof(value_type)))};
+        case 2: return {cc, ::asmjit::x86::word_ptr (reg, idx.reg, clog2(sizeof(value_type)))};
+        case 4: return {cc, ::asmjit::x86::dword_ptr(reg, idx.reg, clog2(sizeof(value_type)))};
+        case 8: return {cc, ::asmjit::x86::qword_ptr(reg, idx.reg, clog2(sizeof(value_type)))};
+      }
+    }
+
 	// indexing with constant -> use offset
 	mem_type operator[](int idx){
 		switch(sizeof(value_type)){
@@ -104,6 +115,7 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, idx*sizeof(value_type))};
 		}
 	}
+
 	// get memory operand with displacement
 	mem_type byteOffset(long offset){
 		switch(sizeof(value_type)){
@@ -130,6 +142,7 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 		cc.lea(reg, ::asmjit::x86::ptr(reg, value.reg, clog2(sizeof(value_type))));
 		return *this;
 	}
+
 	Ptr &operator+=(const D<int> &other){ cc.add(reg, OP*sizeof(value_type)); DL; return *this; }
 	Ptr &operator-=(int amount){ cc.sub(reg, amount*sizeof(value_type)); return *this; }
 
@@ -154,8 +167,11 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 	Ptr &operator--(){ cc.sub(reg, sizeof(value_type)); return *this; }
 
 	// comparisons
+	// TODO compare with raw values for nullptr
 	Condition<F> operator==(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::e};  }
 	Condition<F> operator!=(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::ne}; }
+	// TODO is it allowed to compare pointers like this in C++?
+	Condition<F> operator< (const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::l};  }
 };
 
 

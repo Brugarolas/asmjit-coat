@@ -77,6 +77,12 @@ struct Ptr<::llvm::IRBuilder<>,T> {
 	mem_type operator[](const value_base_type &idx){
 		return { cc, cc.CreateGEP(load(), idx.load()) };
 	}
+
+    // TODO hack to work allow setting vector of pointers (*pptr1 = ptr2)
+    Ref<F, Ptr<F, value_type>> bracket(const value_base_type &idx) {
+      return { cc, cc.CreateGEP(load(), idx.load()) };
+    }
+
 	// indexing with constant -> use offset
 	mem_type operator[](size_t idx){
 		return { cc, cc.CreateGEP(load(), llvm::ConstantInt::get(llvm::Type::getInt64Ty(cc.getContext()), idx)) };
@@ -141,6 +147,7 @@ struct Ptr<::llvm::IRBuilder<>,T> {
 	// comparisons
 	Condition<F> operator==(const Ptr &other) const { return {cc, memreg, other.memreg, ConditionFlag::e};  }
 	Condition<F> operator!=(const Ptr &other) const { return {cc, memreg, other.memreg, ConditionFlag::ne}; }
+	Condition<F> operator< (const Ptr &other) const { return {cc, memreg, other.memreg, ConditionFlag::l}; }
 };
 
 

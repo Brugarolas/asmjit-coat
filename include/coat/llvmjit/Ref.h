@@ -30,6 +30,15 @@ struct Ref<::llvm::IRBuilder<>,T> {
 		return *this;
 	}
 
+	// TODO because copy assignment operator is implicitly deleted
+	//  Things like *ptr1 = *ptr2 won't work without copy assignment
+	Ref &operator=(const Ref &other) {
+	  T tmp(cc, "tmp");
+	  tmp = other;
+	  *this = tmp;
+	  return *this;
+	}
+
 	// operators creating temporary virtual registers
 	LLVMJIT_OPERATORS_WITH_TEMPORARIES(T)
 

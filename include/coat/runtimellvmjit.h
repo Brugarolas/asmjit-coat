@@ -121,7 +121,6 @@ public:
 				}
 				if (auto sym = runtime_functions.find(name); sym != runtime_functions.end()) {
                     return llvm::JITEvaluatedSymbol(static_cast<llvm::JITTargetAddress>(reinterpret_cast<uintptr_t >(sym->second)), llvm::JITSymbolFlags::Exported);
-//                    return llvm::JITSymbol(sym->second, llvm::JITSymbolFlags::Exported);
 				}
 				if(auto symaddr = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)){
 					return llvm::JITSymbol(symaddr, llvm::JITSymbolFlags::Exported);
