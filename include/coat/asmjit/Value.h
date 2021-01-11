@@ -198,7 +198,14 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 		return *this;
 	}
 
-	// special handling of bit tests, for convenience and performance
+  	Value &operator=(Condition<F> &cond){
+		cond.compare();
+		cond.setbyte(reg);
+		return *this;
+  	}
+
+
+  // special handling of bit tests, for convenience and performance
 	void bit_test(const Value &bit, Label<F> &label, bool jump_on_set=true) const {
 		cc.bt(reg, bit);
 		if(jump_on_set){

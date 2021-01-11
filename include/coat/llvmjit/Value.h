@@ -52,6 +52,12 @@ struct Value<llvm::IRBuilder<>,T> final : public ValueBase<llvm::IRBuilder<>> {
 		*this = other;
 	}
 
+  	Value &operator=(Condition<F> &cond){
+	  	cond.compare();
+	  	*this = cond.cmp_result;
+	  	return *this;
+	}
+
 	// explicit type conversion, assignment
 	// always makes a copy
 	// FIXME: implicit conversion between signed and unsigned, but not between types of same size ...
