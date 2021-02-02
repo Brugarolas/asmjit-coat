@@ -11,6 +11,7 @@ namespace coat {
 
 // declares (public) members, enum and tuple containing types
 #define DECLARE(members)      \
+public:						  \
 	members(STRUCT_MEMBER)    \
 	enum member_ids : int {   \
 		members(ENUM_MEMBER)  \
