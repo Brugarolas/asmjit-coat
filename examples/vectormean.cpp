@@ -35,15 +35,14 @@ void mean_coat(
 	// init
 	coat::runtimeasmjit asmrt;
 	// context object
-	coat::Function<coat::runtimeasmjit,func_type> fn(asmrt, "gen_asmjit");
+	auto fn = asmrt.createFunction<func_type>("gen_asmjit");
 	fn.enableCodeDump();
 #elif defined(ENABLE_LLVMJIT)
 	// init
 	coat::runtimellvmjit::initTarget();
 	coat::runtimellvmjit llvmrt;
-	llvmrt.setOptLevel(2);
 	// context object
-	coat::Function<coat::runtimellvmjit,func_type> fn(llvmrt, "gen_llvmjit");
+	auto fn = llvmrt.createFunction<func_type>("gen_llvmjit");
 #else
 #	error "Neither AsmJit nor LLVM enabled"
 #endif
@@ -89,18 +88,19 @@ void mean_coat(
 	}
 
 #ifdef ENABLE_LLVMJIT
-	if(!llvmrt.verifyFunctions()){
+	if(!fn.verify()){
 		puts("verification failed. aborting.");
-		llvmrt.print("failed.ll");
+		fn.printIR("failed.ll");
 		exit(EXIT_FAILURE);
 	}
-	llvmrt.optimize();
-	if(!llvmrt.verifyFunctions()){
+	fn.optimize(2);
+	if(!fn.verify()){
 		puts("verification after optimization failed. aborting.");
-		llvmrt.print("failed_opt.ll");
+		fn.printIR("failed_opt.ll");
 		exit(EXIT_FAILURE);
 	}
-	llvmrt.dumpAssembly("llvmjit_mean.s");
+	//TODO
+	//llvmrt.dumpAssembly("llvmjit_mean.s");
 #endif
 	func_type foo = fn.finalize();
 

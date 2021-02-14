@@ -18,9 +18,8 @@ int main(){
 	// init
 	coat::runtimellvmjit::initTarget();
 	coat::runtimellvmjit llvmrt;
-	llvmrt.setOptLevel(2);
 	// context object
-	coat::Function<coat::runtimellvmjit,func_type> fn(llvmrt, "intersection_llvmjit");
+	auto fn = llvmrt.createFunction<func_type>("intersection_llvmjit");
 	{ // EDSL
 		// function parameters: 2 source arrays, destination array, size of arrays
 		auto [aptr,bptr,rptr,size] = fn.getArguments("a", "b", "r", "size");
@@ -56,14 +55,14 @@ int main(){
 		coat::ret(fn);
 	}
 
-	llvmrt.print("intersection.ll");
-	if(!llvmrt.verifyFunctions()){
+	fn.printIR("intersection.ll");
+	if(!fn.verify()){
 		puts("verification failed. aborting.");
 		exit(EXIT_FAILURE);
 	}
-	llvmrt.optimize();
-	llvmrt.print("intersection_opt.ll");
-	if(!llvmrt.verifyFunctions()){
+	fn.optimize(2);
+	fn.printIR("intersection_opt.ll");
+	if(!fn.verify()){
 		puts("verification after optimization failed. aborting.");
 		exit(EXIT_FAILURE);
 	}

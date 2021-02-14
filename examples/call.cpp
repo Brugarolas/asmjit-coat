@@ -19,13 +19,13 @@ int main(){
 	// initialize backend, AsmJit in this case
 	coat::runtimeasmjit asmrt;
 	// context object representing the generated function
-	coat::Function<coat::runtimeasmjit,func_t> fn(asmrt);
+	auto fn = asmrt.createFunction<func_t>();
 #elif defined(ENABLE_LLVMJIT)
 	// initialize LLVM backend
 	coat::runtimellvmjit::initTarget();
 	coat::runtimellvmjit llvmrt;
 	// context object representing the generated function
-	coat::Function<coat::runtimellvmjit,func_t> fn(llvmrt);
+	auto fn = llvmrt.createFunction<func_t>();
 #else
 #	error "Neither AsmJit nor LLVM enabled"
 #endif
@@ -41,6 +41,13 @@ int main(){
 		// specify return value
 		coat::ret(fn, ret);
 	}
+#ifdef ENABLE_LLVMJIT
+	fn.printIR("call.ll");
+	if(!fn.verify()){
+		puts("verification failed. aborting.");
+		exit(EXIT_FAILURE); //FIXME: better error handling
+	}
+#endif
 	// finalize code generation and get function pointer to the generated function
 	func_t foo = fn.finalize();
 

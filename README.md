@@ -40,7 +40,7 @@ int main(){
 	// signature of the generated function
 	using func_t = uint64_t (*)(uint64_t *data, uint64_t size);
 	// context object representing the generated function
-	coat::Function<coat::runtimeasmjit,func_t> fn(asmrt);
+	auto fn = asmrt.createFunction<func_t>();
 	// start of the EDSL code describing the code of the generated function
 	{
 		// get function arguments as "meta-variables"
@@ -230,7 +230,7 @@ class my_vector {
     x(int*, finish)   \
     x(int*, capacity)
 
-DECLARE_PRIVATE(MEMBERS)
+COAT_DECLARE_PRIVATE(MEMBERS)
 #undef MEMBERS
 
 public:
@@ -336,6 +336,16 @@ Profiling steps:
 
 The generated function should appear with the chosen name in the list of functions.
 You can zoom into the function and annotate the instructions with profile information by pressing 'a'.
+
+
+## Publications
+
+Paper:<br>
+Tetzel, F., Lehner, W. & Kasperovics, R. Efficient Compilation of Regular Path Queries. _Datenbank Spektrum_ 20, 243–259 (2020). https://doi.org/10.1007/s13222-020-00353-9
+
+Blog posts:<br>
+[COAT: EDSL for Codegen](https://tetzank.github.io/posts/coat-edsl-for-codegen/)<br>
+[Codegen in Databases](https://tetzank.github.io/posts/codegen-in-databases/)
 
 
 ## Similar Projects

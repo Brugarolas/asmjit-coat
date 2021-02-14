@@ -31,7 +31,10 @@ struct runtimeasmjit{
 		jd.close();
 	}
 #endif
-  void register_runtime_function(std::string name, void* function_symbol) {}
+	template<typename FnPtr>
+	Function<runtimeasmjit,FnPtr> createFunction(const char *funcName="func"){
+		return Function<runtimeasmjit,FnPtr>(*this, funcName);
+	}
 };
 
 } // namespace
