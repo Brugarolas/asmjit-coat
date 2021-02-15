@@ -51,7 +51,8 @@ inline llvm::Type *getLLVMType(llvm::LLVMContext &ctx){
 				static_assert(should_not_be_reached<T>, "type not supported");
 			}
 		}else{
-			return llvm::PointerType::get(getLLVMStructType<base_type>(ctx), 0);
+		    // TODO differentiate between pointer to struct and pointer to pointer
+			return llvm::Type::getInt64PtrTy(ctx);
 		}
 	}else if constexpr(std::is_array_v<T>){
 		static_assert(std::rank_v<T> == 1, "multidimensional arrays are not supported");

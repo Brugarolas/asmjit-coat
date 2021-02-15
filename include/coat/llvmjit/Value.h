@@ -118,7 +118,7 @@ struct Value<LLVMBuilders,T> final : public ValueBase<LLVMBuilders> {
 	template<typename O>
 	Value<F,O> widen(){
 		static_assert(sizeof(O) > sizeof(T), "widening conversion called on wrong types");
-		Value<F,O> tmp(cc.ir, "widentmp");
+		Value<F,O> tmp(cc, "widentmp");
 		if constexpr(std::is_signed_v<T>){
 			tmp.store( cc.ir.CreateSExt(load(), tmp.type()) );
 		}else{
