@@ -14,6 +14,7 @@
 #include <llvm/IR/Verifier.h>
 
 #include <llvm/Transforms/IPO.h>
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 
 #include <llvm/Support/raw_ostream.h>
@@ -261,20 +262,27 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 	operator       LLVMBuilders&()       { return cc; }
 
 	void optimize(int optLevel){
+	    // TODO
+		// See llvm/llvm/tools/opt/opt.cpp:AddOptimizationPasses
+		// 	for guide on how to optimize
 		// finalize debug information
 		cc.debugFinalize();
 
 		//TODO: use TransformLayer instead
 		llvm::PassManagerBuilder pm_builder;
 		pm_builder.OptLevel = optLevel;
-		pm_builder.SizeLevel = 0;
-		//pm_builder.Inliner = llvm::createAlwaysInlinerLegacyPass();
+		// pm_builder.SizeLevel = 0;
+		// pm_builder.Inliner = llvm::createAlwaysInlinerLegacyPass();
 		pm_builder.Inliner = llvm::createFunctionInliningPass(optLevel, 0, false);
 		pm_builder.LoopVectorize = true;
 		pm_builder.SLPVectorize = true;
+		// pm_builder.LoopVectorize = false;
+		// pm_builder.SLPVectorize = false;
+		// pm_builder.DisableUnrollLoops = false;
 
 		//pm_builder.VerifyInput = true;
 		pm_builder.VerifyOutput = true;
+		// pm_builder.VerifyOutput = false;
 
 		llvm::legacy::FunctionPassManager function_pm(M.get());
 		llvm::legacy::PassManager module_pm;

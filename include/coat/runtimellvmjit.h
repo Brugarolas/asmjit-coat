@@ -5,6 +5,8 @@
 #include "constexpr_helper.h" // should_not_be_reached
 
 #include <llvm/Support/TargetSelect.h> // InitializeNativeTarget
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
 
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
@@ -93,11 +95,22 @@ public:
 
 	//TODO: add configuration parameters/flags
 	// like dump_assembly, gdb_support, perf_support, opt_level
-	runtimellvmjit(){
+	// TODO not cool! Just a quick hack!
+	runtimellvmjit(bool fast_codegen=false){
 		//J = ExitOnErr(
+		llvm::TargetOptions target_options;
+        target_options.EnableFastISel = true;
+        target_options.EmulatedTLS = true;
+        target_options.ExplicitEmulatedTLS = true;
+		auto builder = cantFail(llvm::orc::JITTargetMachineBuilder::detectHost());
+		if (fast_codegen) {
+          builder.setOptions(target_options);
+          builder.setCodeGenOptLevel(llvm::CodeGenOpt::None);
+		}
+
 		J = cantFail(
 			llvm::orc::LLJITBuilder()
-				.setJITTargetMachineBuilder(cantFail(llvm::orc::JITTargetMachineBuilder::detectHost()))
+				.setJITTargetMachineBuilder(builder)
 				.setCompileFunctionCreator([&](llvm::orc::JITTargetMachineBuilder JTMB)
 					-> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>>
 				{
