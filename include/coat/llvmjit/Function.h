@@ -16,6 +16,7 @@
 #include <llvm/Transforms/IPO.h>
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
 
 #include <llvm/Support/raw_ostream.h>
 
@@ -290,13 +291,25 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 		pm_builder.populateModulePassManager(module_pm);
 
 		function_pm.doInitialization();
-		//TODO: multiple functions
-		//for(llvm::Function *f : functions){
-		//	function_pm.run(*f);
-		//}
-		function_pm.run(*func);
+		// std::string str;
+        // {
+        // llvm::raw_string_ostream os(str);
+        // llvm::buffer_ostream pstream(os);
+        // auto tm = cantFail(cantFail(llvm::orc::JITTargetMachineBuilder::detectHost()).createTargetMachine());
+        // tm->Options.MCOptions.AsmVerbose = true; // get some comments linking it to LLVM IR
+        // tm->addPassesToEmitFile(module_pm, pstream, nullptr, llvm::CodeGenFileType::CGFT_AssemblyFile);
+        //TODO: multiple functions
+        //for(llvm::Function *f : functions){
+        //	function_pm.run(*f);
+        //}
+        function_pm.run(*func);
 
-		module_pm.run(*M);
+        module_pm.run(*M);
+        // }
+        //
+		// std::string out_file{"/home/personal/CLionProjects/ProcessEngine/tryout/output_asm"};
+		// std::ofstream of(out_file.c_str());
+		// of << str;
 	}
 
 	// print IR to file
