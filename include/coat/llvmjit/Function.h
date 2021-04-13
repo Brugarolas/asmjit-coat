@@ -262,7 +262,7 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 	operator const LLVMBuilders&() const { return cc; }
 	operator       LLVMBuilders&()       { return cc; }
 
-	void optimize(int optLevel){
+	void optimize(int optLevel, bool print_asm=false){
 	    // TODO
 		// See llvm/llvm/tools/opt/opt.cpp:AddOptimizationPasses
 		// 	for guide on how to optimize
@@ -291,25 +291,31 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 		pm_builder.populateModulePassManager(module_pm);
 
 		function_pm.doInitialization();
-		// std::string str;
-        // {
-        // llvm::raw_string_ostream os(str);
-        // llvm::buffer_ostream pstream(os);
-        // auto tm = cantFail(cantFail(llvm::orc::JITTargetMachineBuilder::detectHost()).createTargetMachine());
-        // tm->Options.MCOptions.AsmVerbose = true; // get some comments linking it to LLVM IR
-        // tm->addPassesToEmitFile(module_pm, pstream, nullptr, llvm::CodeGenFileType::CGFT_AssemblyFile);
-        //TODO: multiple functions
-        //for(llvm::Function *f : functions){
-        //	function_pm.run(*f);
-        //}
-        function_pm.run(*func);
+		if (print_asm) {
+			std::string str;
+			{
+				llvm::raw_string_ostream os(str);
+				llvm::buffer_ostream pstream(os);
+				auto tm = cantFail(cantFail(llvm::orc::JITTargetMachineBuilder::detectHost()).createTargetMachine());
+				// tm->Options.MCOptions.AsmVerbose = true; // get some comments linking it to LLVM IR
+				tm->addPassesToEmitFile(module_pm, pstream, nullptr, llvm::CodeGenFileType::CGFT_AssemblyFile);
 
-        module_pm.run(*M);
-        // }
-        //
-		// std::string out_file{"/home/personal/CLionProjects/ProcessEngine/tryout/output_asm"};
-		// std::ofstream of(out_file.c_str());
-		// of << str;
+				function_pm.run(*func);
+				module_pm.run(*M);
+			}
+
+			std::string out_file{"/home/personal/CLionProjects/ProcessEngine/tryout/output_asm"};
+			std::ofstream of(out_file.c_str());
+			of << str;
+		} else {
+			//TODO: multiple functions
+			//for(llvm::Function *f : functions){
+			//	function_pm.run(*f);
+			//}
+			function_pm.run(*func);
+
+			module_pm.run(*M);
+		}
 	}
 
 	// print IR to file
