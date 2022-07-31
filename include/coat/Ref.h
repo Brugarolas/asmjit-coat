@@ -4,7 +4,7 @@
 
 namespace coat {
 
-template<class CC, typename T>
+template<typename T>
 struct Ref;
 
 } // namespace

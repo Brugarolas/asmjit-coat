@@ -50,7 +50,7 @@ struct StructBase;
 struct StructBaseEmpty {};
 
 
-template<class CC, typename T>
+template<typename T>
 struct Struct;
 
 } // namespace

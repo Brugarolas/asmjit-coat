@@ -6,8 +6,7 @@
 
 namespace coat {
 
-template<>
-struct Label<::asmjit::x86::Compiler> final {
+struct Label final {
 	using F = ::asmjit::x86::Compiler;
 
 	::asmjit::x86::Compiler &cc;
@@ -23,8 +22,6 @@ struct Label<::asmjit::x86::Compiler> final {
 	operator       ::asmjit::Label&()       { return label; }
 };
 
-// deduction guides
-template<typename FnPtr> Label(Function<runtimeasmjit,FnPtr>&) -> Label<::asmjit::x86::Compiler>;
 
 } // namespace
 

@@ -134,7 +134,7 @@ int main(int argc, char **argv){
 		// using factory, preferred way
 		auto fn = asmrt.createFunction<func_type>("value_creation");
 		// calling coat::Value ctor
-		coat::Value<::asmjit::x86::Compiler,int> vr_val(fn, "val");
+		coat::Value<int> vr_val(fn, "val");
 		vr_val = 0;
 		// calling factory to get coat::Value of certain type
 		auto vr_val2 = fn.getValue<int>("val");

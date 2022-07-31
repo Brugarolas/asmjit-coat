@@ -163,23 +163,23 @@ template<typename T, size_t I>
 struct has_custom_base<pod_vector<T,I>> : std::true_type {};
 
 
-template<class CC, typename T, size_t I>
-struct StructBase<Struct<CC,pod_vector<T,I>>> {
+template<typename T, size_t I>
+struct StructBase<Struct<pod_vector<T,I>>> {
 	using PV = pod_vector<T,I>;
 
 	//TODO: optimize member access, load done on every call, can we do better?
 
 	auto begin() const {
-		auto &self = static_cast<const Struct<CC,PV>&>(*this);
+		auto &self = static_cast<const Struct<PV>&>(*this);
 		return self.template get_value<PV::member_start>();
 	}
 	auto end() const {
-		auto &self = static_cast<const Struct<CC,PV>&>(*this);
+		auto &self = static_cast<const Struct<PV>&>(*this);
 		return self.template get_value<PV::member_finish>();
 	}
 
-	void push_back(Value<CC,T> &value){
-		auto &self = static_cast<Struct<CC,PV>&>(*this);
+	void push_back(Value<T> &value){
+		auto &self = static_cast<Struct<PV>&>(*this);
 		auto vr_finish = self.template get_value<PV::member_finish>();
 		auto vr_capend = self.template get_value<PV::member_capend>();
 		// grow in size if full
@@ -205,7 +205,7 @@ struct StructBase<Struct<CC,pod_vector<T,I>>> {
 	// pop one element off at the end and return it
 	template<typename Callback>
 	void pop_back(Callback &&cb){
-		auto &self = static_cast<Struct<CC,PV>&>(*this);
+		auto &self = static_cast<Struct<PV>&>(*this);
 		// get past-the-end and start pointers
 		auto vr_finish = self.template get_value<PV::member_finish>();
 		auto vr_start = self.template get_reference<PV::member_start>();
@@ -220,20 +220,20 @@ struct StructBase<Struct<CC,pod_vector<T,I>>> {
 		});
 	}
 
-	Value<CC,size_t> size() const {
-		auto &self = static_cast<const Struct<CC,PV>&>(*this);
+	Value<size_t> size() const {
+		auto &self = static_cast<const Struct<PV>&>(*this);
 		auto vr_start = self.template get_value<PV::member_start>();
 		auto vr_finish = self.template get_value<PV::member_finish>();
 		return vr_finish - vr_start;
 	}
 
 	void clear(){
-		auto &self = static_cast<Struct<CC,PV>&>(*this);
+		auto &self = static_cast<Struct<PV>&>(*this);
 		self.template get_reference<PV::member_finish>() = self.template get_value<PV::member_start>();
 	}
 
-	void swap(Struct<CC,PV> &other){
-		auto &self = static_cast<Struct<CC,PV>&>(*this);
+	void swap(Struct<PV> &other){
+		auto &self = static_cast<Struct<PV>&>(*this);
 		
 		auto tmp1 = self.template get_value<PV::member_start>();
 		auto tmp2 = other.template get_value<PV::member_start>();

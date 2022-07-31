@@ -8,8 +8,7 @@
 
 namespace coat {
 
-template<>
-struct ValueBase<::asmjit::x86::Compiler> {
+struct ValueBase {
 	::asmjit::x86::Compiler &cc;
 	::asmjit::x86::Gp reg;
 
@@ -33,20 +32,20 @@ struct ValueBase<::asmjit::x86::Compiler> {
 // identical operations for signed and unsigned, or different sizes
 // pre-increment, post-increment not supported as it leads to temporary
 // free-standing functions as we need "this" as explicit parameter, stupidly called "other" here because of macros...
-inline ValueBase<::asmjit::x86::Compiler> &operator++(const D<ValueBase<::asmjit::x86::Compiler>> &other){
+inline ValueBase &operator++(const D<ValueBase> &other){
 	OP.cc.inc(OP.reg);
 #ifdef PROFILING_SOURCE
 	((PerfCompiler&)other.operand.cc).attachDebugLine(other.file, other.line);
 #endif
-	return const_cast<ValueBase<::asmjit::x86::Compiler>&>(OP); //HACK
+	return const_cast<ValueBase&>(OP); //HACK
 }
 // pre-decrement
-inline ValueBase<::asmjit::x86::Compiler> &operator--(const D<ValueBase<::asmjit::x86::Compiler>> &other){
+inline ValueBase &operator--(const D<ValueBase> &other){
 	OP.cc.dec(OP.reg);
 #ifdef PROFILING_SOURCE
 	((PerfCompiler&)other.operand.cc).attachDebugLine(other.file, other.line);
 #endif
-	return const_cast<ValueBase<::asmjit::x86::Compiler>&>(OP); //HACK
+	return const_cast<ValueBase&>(OP); //HACK
 }
 
 } // namespace

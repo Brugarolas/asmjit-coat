@@ -106,7 +106,7 @@ int main(int argc, char *argv[]){
 #ifdef ENABLE_ASMJIT
 	{
 		// context object representing the generated function
-		coat::Function<coat::runtimeasmjit,func_t> fn(asmrt);
+		coat::Function<func_t> fn(asmrt);
 		assemble_selfcall(fn);
 		// finalize code generation and get function pointer to the generated function
 		func_t foo = fn.finalize();
@@ -131,11 +131,11 @@ int main(int argc, char *argv[]){
 
 #ifdef ENABLE_ASMJIT
 	{
-		coat::Function<coat::runtimeasmjit,func_t> fnrec(asmrt);
+		coat::Function<func_t> fnrec(asmrt);
 		assemble_selfcall(fnrec);
 		func_t foorec = fnrec.finalize();
 
-		coat::Function<coat::runtimeasmjit,func_t> fn(asmrt);
+		coat::Function<func_t> fn(asmrt);
 		assemble_crosscall(fn, foorec, "");
 		func_t foo = fn.finalize();
 		// execute the generated function
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]){
 #ifdef ENABLE_ASMJIT
 	{
 		// context object representing the generated function
-		coat::Function<coat::runtimeasmjit,func_t> fn(asmrt);
+		coat::Function<func_t> fn(asmrt);
 		assemble_allinone(fn);
 		// finalize code generation and get function pointer to the generated function
 		func_t foo = fn.finalize();

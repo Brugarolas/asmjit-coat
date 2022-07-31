@@ -36,10 +36,10 @@ namespace coat {
 template<>
 struct has_custom_base<Table> : std::true_type {};
 
-template<class CC>
-struct StructBase<Struct<CC,Table>> {
-	Ptr<CC,Value<CC,uint64_t>> operator[](size_t col) const {
-		auto &self = static_cast<const Struct<CC,Table>&>(*this);
+template<>
+struct StructBase<Struct<Table>> {
+	Ptr<Value<uint64_t>> operator[](size_t col) const {
+		auto &self = static_cast<const Struct<Table>&>(*this);
 		//FIXME: loaded every time
 		auto vr_nrows = self.template get_value<Table::member_nrows>();
 		auto vr_data = self.template get_value<Table::member_data>();
@@ -226,7 +226,7 @@ static column_t jit1_asmjit(const Table &table, const char *operations, coat::ru
 	auto t_start = std::chrono::high_resolution_clock::now();
 
 	using func_t = void (*)(const Table *table, uint64_t *result, size_t size);
-	coat::Function<coat::runtimeasmjit,func_t> fn(asmrt, "jit1_asmjit");
+	coat::Function<func_t> fn(asmrt, "jit1_asmjit");
 	assemble_jit1(fn, operations);
 	// finalize function
 	func_t fnptr = fn.finalize();
@@ -295,7 +295,7 @@ static column_t jit2_asmjit(const Table &table, const char *operations, coat::ru
 	auto t_start = std::chrono::high_resolution_clock::now();
 
 	using func_t = void (*)(const Table *table, uint64_t *result, size_t size);
-	coat::Function<coat::runtimeasmjit,func_t> fn(asmrt, "jit2_asmjit");
+	coat::Function<func_t> fn(asmrt, "jit2_asmjit");
 	assemble_jit2(fn, operations);
 	// finalize function
 	func_t fnptr = fn.finalize();
@@ -364,7 +364,7 @@ static column_t jit3_asmjit(const Table &table, const char *operations, coat::ru
 	auto t_start = std::chrono::high_resolution_clock::now();
 
 	using func_t = void (*)(uint64_t *result, size_t size);
-	coat::Function<coat::runtimeasmjit,func_t> fn(asmrt, "jit3_asmjit");
+	coat::Function<func_t> fn(asmrt, "jit3_asmjit");
 	assemble_jit3(fn, operations, table);
 	// finalize function
 	func_t fnptr = fn.finalize();

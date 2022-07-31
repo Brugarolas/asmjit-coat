@@ -14,7 +14,7 @@ inline void jump(::asmjit::x86::Compiler &cc, ::asmjit::Label label
 	((PerfCompiler&)cc).attachDebugLine(file, line);
 #endif
 }
-inline void jump(::asmjit::x86::Compiler &, const Condition<::asmjit::x86::Compiler> &cond, ::asmjit::Label label
+inline void jump(::asmjit::x86::Compiler &, const Condition &cond, ::asmjit::Label label
 #ifdef PROFILING_SOURCE
 	, const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
@@ -33,19 +33,19 @@ inline void ret(::asmjit::x86::Compiler &cc){
 	cc.ret();
 }
 template<typename FnPtr, typename VReg>
-inline void ret(Function<runtimeasmjit,FnPtr> &ctx, VReg &reg){
-	static_assert(std::is_same_v<typename Function<runtimeasmjit,FnPtr>::return_type, typename VReg::value_type>, "incompatible return types");
+inline void ret(Function<FnPtr> &ctx, VReg &reg){
+	static_assert(std::is_same_v<typename Function<FnPtr>::return_type, typename VReg::value_type>, "incompatible return types");
 	ctx.cc.ret(reg);
 }
 template<typename FnPtr, typename VReg>
-inline void ret(InternalFunction<runtimeasmjit,FnPtr> &ctx, VReg &reg){
-	static_assert(std::is_same_v<typename InternalFunction<runtimeasmjit,FnPtr>::return_type, typename VReg::value_type>, "incompatible return types");
+inline void ret(InternalFunction<FnPtr> &ctx, VReg &reg){
+	static_assert(std::is_same_v<typename InternalFunction<FnPtr>::return_type, typename VReg::value_type>, "incompatible return types");
 	ctx.cc.ret(reg);
 }
 
 
 template<typename Fn>
-void if_then(::asmjit::x86::Compiler &cc, Condition<::asmjit::x86::Compiler> cond, Fn &&then
+void if_then(::asmjit::x86::Compiler &cc, Condition cond, Fn &&then
 #ifdef PROFILING_SOURCE
 	, const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
@@ -63,7 +63,7 @@ void if_then(::asmjit::x86::Compiler &cc, Condition<::asmjit::x86::Compiler> con
 }
 
 template<typename Then, typename Else>
-void if_then_else(::asmjit::x86::Compiler &cc, Condition<::asmjit::x86::Compiler> cond, Then &&then, Else &&else_
+void if_then_else(::asmjit::x86::Compiler &cc, Condition cond, Then &&then, Else &&else_
 #ifdef PROFILING_SOURCE
 	, const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
@@ -91,7 +91,7 @@ void if_then_else(::asmjit::x86::Compiler &cc, Condition<::asmjit::x86::Compiler
 
 
 template<typename Fn>
-void loop_while(::asmjit::x86::Compiler &cc, Condition<::asmjit::x86::Compiler> cond, Fn &&body
+void loop_while(::asmjit::x86::Compiler &cc, Condition cond, Fn &&body
 #ifdef PROFILING_SOURCE
 	, const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
@@ -120,7 +120,7 @@ void loop_while(::asmjit::x86::Compiler &cc, Condition<::asmjit::x86::Compiler> 
 }
 
 template<typename Fn>
-void do_while(::asmjit::x86::Compiler &cc, Fn &&body, Condition<::asmjit::x86::Compiler> cond
+void do_while(::asmjit::x86::Compiler &cc, Fn &&body, Condition cond
 #ifdef PROFILING_SOURCE
 	, const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
@@ -196,8 +196,8 @@ void for_each(::asmjit::x86::Compiler &cc, const T &container, Fn &&body){
 
 // calling function pointer, from generated code to C++ function
 template<typename R, typename ...Args>
-std::conditional_t<std::is_void_v<R>, void, reg_type<::asmjit::x86::Compiler,R>>
-FunctionCall(::asmjit::x86::Compiler &cc, R(*fnptr)(Args...), const char*, const wrapper_type<::asmjit::x86::Compiler,Args>&... arguments){
+std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
+FunctionCall(::asmjit::x86::Compiler &cc, R(*fnptr)(Args...), const char*, const wrapper_type<Args>&... arguments){
 	if constexpr(std::is_void_v<R>){
 		::asmjit::FuncCallNode *c = cc.call((uint64_t)(void*)fnptr, ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
 		int index=0;
@@ -205,7 +205,7 @@ FunctionCall(::asmjit::x86::Compiler &cc, R(*fnptr)(Args...), const char*, const
 		// (c->setArg(0, arguments_0), ... ; 
 		((c->setArg(index++, arguments)), ...);
 	}else{
-		reg_type<::asmjit::x86::Compiler,R> ret(cc, "");
+		reg_type<R> ret(cc, "");
 		::asmjit::FuncCallNode *c = cc.call((uint64_t)(void*)fnptr, ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
 		int index=0;
 		// function parameters
@@ -219,8 +219,8 @@ FunctionCall(::asmjit::x86::Compiler &cc, R(*fnptr)(Args...), const char*, const
 
 // calling generated function
 template<typename R, typename ...Args>
-std::conditional_t<std::is_void_v<R>, void, reg_type<::asmjit::x86::Compiler,R>>
-FunctionCall(::asmjit::x86::Compiler &cc, const Function<runtimeasmjit,R(*)(Args...)> &func, const wrapper_type<::asmjit::x86::Compiler,Args>&... arguments){
+std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
+FunctionCall(::asmjit::x86::Compiler &cc, const Function<R(*)(Args...)> &func, const wrapper_type<Args>&... arguments){
 	if constexpr(std::is_void_v<R>){
 		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
 		int index=0;
@@ -228,7 +228,7 @@ FunctionCall(::asmjit::x86::Compiler &cc, const Function<runtimeasmjit,R(*)(Args
 		// (c->setArg(0, arguments_0), ... ; 
 		((c->setArg(index++, arguments)), ...);
 	}else{
-		reg_type<::asmjit::x86::Compiler,R> ret(cc, "");
+		reg_type<R> ret(cc, "");
 		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
 		int index=0;
 		// function parameters
@@ -242,8 +242,8 @@ FunctionCall(::asmjit::x86::Compiler &cc, const Function<runtimeasmjit,R(*)(Args
 
 // calling internal function inside generated code
 template<typename R, typename ...Args>
-std::conditional_t<std::is_void_v<R>, void, reg_type<::asmjit::x86::Compiler,R>>
-FunctionCall(::asmjit::x86::Compiler &cc, const InternalFunction<runtimeasmjit,R(*)(Args...)> &func, const wrapper_type<::asmjit::x86::Compiler,Args>&... arguments){
+std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
+FunctionCall(::asmjit::x86::Compiler &cc, const InternalFunction<R(*)(Args...)> &func, const wrapper_type<Args>&... arguments){
 	if constexpr(std::is_void_v<R>){
 		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
 		int index=0;
@@ -251,7 +251,7 @@ FunctionCall(::asmjit::x86::Compiler &cc, const InternalFunction<runtimeasmjit,R
 		// (c->setArg(0, arguments_0), ... ; 
 		((c->setArg(index++, arguments)), ...);
 	}else{
-		reg_type<::asmjit::x86::Compiler,R> ret(cc, "");
+		reg_type<R> ret(cc, "");
 		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
 		int index=0;
 		// function parameters
@@ -266,8 +266,8 @@ FunctionCall(::asmjit::x86::Compiler &cc, const InternalFunction<runtimeasmjit,R
 
 // pointer difference in bytes, no pointer arithmetic (used by Ptr operators)
 template<typename T>
-Value<::asmjit::x86::Compiler,size_t> distance(::asmjit::x86::Compiler &cc, Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,T>> &beg, Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,T>> &end){
-	Value<::asmjit::x86::Compiler,size_t> vr_ret(cc, "distance");
+Value<size_t> distance(::asmjit::x86::Compiler &cc, Ptr<Value<T>> &beg, Ptr<Value<T>> &end){
+	Value<size_t> vr_ret(cc, "distance");
 	cc.mov(vr_ret, end);
 	cc.sub(vr_ret, beg);
 	return vr_ret;

@@ -16,18 +16,22 @@ namespace coat {
 // holds operands and comparison type
 // cannot emit instructions directly as comparison emits multiple instructions at different locations
 // while-loop: if(cond) do{ ... }while(cond);
-template<>
-struct Condition<::asmjit::x86::Compiler> {
+struct Condition {
 	::asmjit::x86::Compiler &cc; //FIXME: pointer stored in every value type
 	// take by value as it might be a temporary which we have to store otherwise it's gone
 	::asmjit::x86::Gp reg;
+	::asmjit::x86::Xmm reg_xmm;
 	//const ::asmjit::Operand &operand;
-	using operand_t = std::variant<::asmjit::x86::Gp,int,::asmjit::x86::Mem>;
+	using operand_t = std::variant<::asmjit::x86::Gp, int, ::asmjit::x86::Mem, asmjit::x86::Xmm>;
 	operand_t operand;
 	ConditionFlag cond;
+	bool is_float;
 
 	Condition(::asmjit::x86::Compiler &cc, ::asmjit::x86::Gp reg, operand_t operand, ConditionFlag cond)
-		: cc(cc), reg(reg), operand(operand), cond(cond) {}
+		: cc(cc), reg(reg), operand(operand), cond(cond), is_float(cond >= ConditionFlag::e_f) {}
+
+	Condition(::asmjit::x86::Compiler &cc, ::asmjit::x86::Xmm reg_, operand_t operand, ConditionFlag cond)
+		: cc(cc), reg_xmm(reg_), operand(operand), cond(cond), is_float(cond >= ConditionFlag::e_f) {}
 
 	Condition operator!() const {
 		ConditionFlag newcond;
@@ -43,10 +47,19 @@ struct Condition<::asmjit::x86::Compiler> {
 			case ConditionFlag::a : newcond = ConditionFlag::be; break;
 			case ConditionFlag::ae: newcond = ConditionFlag::b ; break;
 
+			case ConditionFlag::e_f : newcond = ConditionFlag::ne_f; break;
+			case ConditionFlag::ne_f: newcond = ConditionFlag::e_f ; break;
+			case ConditionFlag::l_f : newcond = ConditionFlag::ge_f; break;
+			case ConditionFlag::le_f: newcond = ConditionFlag::g_f ; break;
+			case ConditionFlag::g_f : newcond = ConditionFlag::le_f; break;
+			case ConditionFlag::ge_f: newcond = ConditionFlag::l_f ; break;
 			default:
 				__builtin_trap(); //FIXME: crash
 		}
-		return {cc, reg, operand, newcond};
+		if (is_float)
+			return {cc, reg_xmm, operand, newcond};
+		else
+			return {cc, reg, operand, newcond};
 	}
 
 	void compare(
@@ -54,33 +67,48 @@ struct Condition<::asmjit::x86::Compiler> {
 		const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 	) const {
-		switch(operand.index()){
-			case 0: cc.cmp(reg, std::get<::asmjit::x86::Gp>(operand)); break;
-			case 1: cc.cmp(reg, ::asmjit::imm(std::get<int>(operand))); break;
-			case 2: cc.cmp(reg, std::get<::asmjit::x86::Mem>(operand)); break;
+		if (!is_float) {
+			switch(operand.index()){
+				case 0: cc.cmp(reg, std::get<::asmjit::x86::Gp>(operand)); break;
+				case 1: cc.cmp(reg, ::asmjit::imm(std::get<int>(operand))); break;
+				case 2: cc.cmp(reg, std::get<::asmjit::x86::Mem>(operand)); break;
 
-			default:
-				__builtin_trap(); //FIXME: crash
+				default:
+					__builtin_trap(); //FIXME: crash
+			}
+		} else {
+			// 
+			switch(operand.index()){
+				case 3: cc.comiss(reg_xmm, std::get<::asmjit::x86::Xmm>(operand)); break;
+				case 2: cc.comiss(reg_xmm, std::get<::asmjit::x86::Mem>(operand)); break;
+
+				default:
+					__builtin_trap(); //FIXME: crash
+			}
 		}
 #ifdef PROFILING_SOURCE
 		((PerfCompiler&)cc).attachDebugLine(file, line);
 #endif
 	}
 	void setbyte(::asmjit::x86::Gp &dest) const {
-		switch(cond){
-			case ConditionFlag::e : cc.sete (dest); break;
-			case ConditionFlag::ne: cc.setne(dest); break;
-			case ConditionFlag::l : cc.setl (dest); break;
-			case ConditionFlag::le: cc.setle(dest); break;
-			case ConditionFlag::g : cc.setg (dest); break;
-			case ConditionFlag::ge: cc.setge(dest); break;
-			case ConditionFlag::b : cc.setb (dest); break;
-			case ConditionFlag::be: cc.setbe(dest); break;
-			case ConditionFlag::a : cc.seta (dest); break;
-			case ConditionFlag::ae: cc.setae(dest); break;
+		if (!is_float) {
+			switch(cond){
+				case ConditionFlag::e : cc.sete (dest); break;
+				case ConditionFlag::ne: cc.setne(dest); break;
+				case ConditionFlag::l : cc.setl (dest); break;
+				case ConditionFlag::le: cc.setle(dest); break;
+				case ConditionFlag::g : cc.setg (dest); break;
+				case ConditionFlag::ge: cc.setge(dest); break;
+				case ConditionFlag::b : cc.setb (dest); break;
+				case ConditionFlag::be: cc.setbe(dest); break;
+				case ConditionFlag::a : cc.seta (dest); break;
+				case ConditionFlag::ae: cc.setae(dest); break;
 
-			default:
-				__builtin_trap(); //FIXME: crash
+				default:
+					__builtin_trap(); //FIXME: crash
+			}
+		} else {
+			__builtin_trap(); //FIXME: crash
 		}
 	}
 	void jump(::asmjit::Label label
@@ -88,20 +116,35 @@ struct Condition<::asmjit::x86::Compiler> {
 		, const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 	) const {
-		switch(cond){
-			case ConditionFlag::e : cc.je (label); break;
-			case ConditionFlag::ne: cc.jne(label); break;
-			case ConditionFlag::l : cc.jl (label); break;
-			case ConditionFlag::le: cc.jle(label); break;
-			case ConditionFlag::g : cc.jg (label); break;
-			case ConditionFlag::ge: cc.jge(label); break;
-			case ConditionFlag::b : cc.jb (label); break;
-			case ConditionFlag::be: cc.jbe(label); break;
-			case ConditionFlag::a : cc.ja (label); break;
-			case ConditionFlag::ae: cc.jae(label); break;
+		if (!is_float) {
+			switch(cond){
+				case ConditionFlag::e : cc.je (label); break;
+				case ConditionFlag::ne: cc.jne(label); break;
+				case ConditionFlag::l : cc.jl (label); break;
+				case ConditionFlag::le: cc.jle(label); break;
+				case ConditionFlag::g : cc.jg (label); break;
+				case ConditionFlag::ge: cc.jge(label); break;
+				case ConditionFlag::b : cc.jb (label); break;
+				case ConditionFlag::be: cc.jbe(label); break;
+				case ConditionFlag::a : cc.ja (label); break;
+				case ConditionFlag::ae: cc.jae(label); break;
 
-			default:
-				__builtin_trap(); //FIXME: crash
+				default:
+					__builtin_trap(); //FIXME: crash
+			}
+		} else {
+			switch(cond) {
+				// https://stackoverflow.com/questions/30562968/xmm-cmp-two-32-bit-float
+				case ConditionFlag::e_f : cc.je(label); break;
+				case ConditionFlag::ne_f: cc.jne(label); break;
+				case ConditionFlag::l_f : cc.jb(label); break;
+				case ConditionFlag::le_f: cc.jbe(label); break;
+				case ConditionFlag::g_f : cc.ja(label); break;
+				case ConditionFlag::ge_f: cc.jae(label); break;
+
+				default:
+					__builtin_trap(); //FIXME: crash
+			}
 		}
 #ifdef PROFILING_SOURCE
 		((PerfCompiler&)cc).attachDebugLine(file, line);

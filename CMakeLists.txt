@@ -12,6 +12,7 @@ project(coat CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories("${CMAKE_SOURCE_DIR}/include/")
 
@@ -103,3 +104,7 @@ if(ENABLE_LLVMJIT)
 	target_compile_definitions(fibonacci PRIVATE "ENABLE_LLVMJIT")
 	target_link_libraries(fibonacci ${LLVM_LIBRARIES})
 endif()
+
+add_executable(test_float test_float.cpp)
+target_compile_definitions(test_float PRIVATE "ENABLE_ASMJIT")
+target_link_libraries(test_float ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})

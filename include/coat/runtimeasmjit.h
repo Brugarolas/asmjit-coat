@@ -32,8 +32,8 @@ struct runtimeasmjit{
 #endif
 
 	template<typename FnPtr>
-	Function<runtimeasmjit,FnPtr> createFunction(const char *funcName="func"){
-		return Function<runtimeasmjit,FnPtr>(*this, funcName);
+	Function<FnPtr> createFunction(const char *funcName="func"){
+		return Function<FnPtr>(*this, funcName);
 	}
 };
 

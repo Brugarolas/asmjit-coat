@@ -3,10 +3,10 @@
 
 namespace coat {
 
-template<class CC, typename T, unsigned width>
+template<typename T, unsigned width>
 struct Vector;
 
-template<class CC, unsigned width>
+template<unsigned width>
 struct VectorMask;
 
 } // namespace

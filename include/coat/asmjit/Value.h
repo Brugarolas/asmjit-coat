@@ -21,7 +21,7 @@
 namespace coat {
 
 template<typename T>
-struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::Compiler> {
+struct Value final : public ValueBase {
 	using F = ::asmjit::x86::Compiler;
 	using value_type = T;
 
@@ -70,7 +70,7 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 	}
 
 	// copy ctor for ref, basically loads value from memory and stores in register
-	Value(const D<Ref<F,Value>> &other) : Value(other.cc) {
+	Value(const D<Ref<Value>> &other) : Value(other.cc) {
 		*this = other;
 	}
 
@@ -141,9 +141,9 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 	// explicit conversion, no assignment, new value/temporary
 	//TODO: decide on one style and delete other
 	template<typename O>
-	Value<F,O> narrow(){
+	Value<O> narrow(){
 		static_assert(sizeof(O) < sizeof(T), "narrowing conversion called on wrong types");
-		Value<F,O> tmp(cc, "narrowtmp");
+		Value<O> tmp(cc, "narrowtmp");
 		// copy from register
 		switch(sizeof(O)){
 			case 1: cc.mov(tmp.reg, reg.r8 ()); break;
@@ -153,9 +153,9 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 		return tmp;
 	}
 	template<typename O>
-	Value<F,O> widen(){
+	Value<O> widen(){
 		static_assert(sizeof(O) > sizeof(T), "widening conversion called on wrong types");
-		Value<F,O> tmp(cc, "widentmp");
+		Value<O> tmp(cc, "widentmp");
 		if constexpr(std::is_signed_v<T>){
 			if(sizeof(O)==8 && sizeof(T)==4){
 				cc.movsxd(tmp.reg, reg);
@@ -191,14 +191,14 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 		}
 		return *this;
 	}
-	Value &operator=(const D<Ref<F,Value>> &other){
+	Value &operator=(const D<Ref<Value>> &other){
 		cc.mov(reg, OP);
 		DL;
 		return *this;
 	}
 
 	// special handling of bit tests, for convenience and performance
-	void bit_test(const Value &bit, Label<F> &label, bool jump_on_set=true) const {
+	void bit_test(const Value &bit, Label &label, bool jump_on_set=true) const {
 		cc.bt(reg, bit);
 		if(jump_on_set){
 			cc.jc(label);
@@ -207,7 +207,7 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 		}
 	}
 
-	void bit_test_and_set(const Value &bit, Label<F> &label, bool jump_on_set=true){
+	void bit_test_and_set(const Value &bit, Label &label, bool jump_on_set=true){
 		cc.bts(reg, bit);
 		if(jump_on_set){
 			cc.jc(label);
@@ -216,7 +216,7 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 		}
 	}
 
-	void bit_test_and_reset(const Value &bit, Label<F> &label, bool jump_on_set=true){
+	void bit_test_and_reset(const Value &bit, Label &label, bool jump_on_set=true){
 		cc.btr(reg, bit);
 		if(jump_on_set){
 			cc.jc(label);
@@ -441,23 +441,23 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 
 	Value &operator+=(const D<int>          &other){ cc.add(reg, ::asmjit::imm(OP)); DL; return *this; }
 	Value &operator+=(const D<Value>        &other){ cc.add(reg, OP);                DL; return *this; }
-	Value &operator+=(const D<Ref<F,Value>> &other){ cc.add(reg, OP);                DL; return *this; }
+	Value &operator+=(const D<Ref<Value>> &other){ cc.add(reg, OP);                DL; return *this; }
 
 	Value &operator-=(const D<int>          &other){ cc.sub(reg, ::asmjit::imm(OP)); DL; return *this; }
 	Value &operator-=(const D<Value>        &other){ cc.sub(reg, OP);                DL; return *this; }
-	Value &operator-=(const D<Ref<F,Value>> &other){ cc.sub(reg, OP);                DL; return *this; }
+	Value &operator-=(const D<Ref<Value>> &other){ cc.sub(reg, OP);                DL; return *this; }
 
 	Value &operator&=(const D<int>          &other){ cc.and_(reg, ::asmjit::imm(OP)); DL; return *this; }
 	Value &operator&=(const D<Value>        &other){ cc.and_(reg, OP);                DL; return *this; }
-	Value &operator&=(const D<Ref<F,Value>> &other){ cc.and_(reg, OP);                DL; return *this; }
+	Value &operator&=(const D<Ref<Value>> &other){ cc.and_(reg, OP);                DL; return *this; }
 
 	Value &operator|=(const D<int>          &other){ cc.or_(reg, ::asmjit::imm(OP)); DL; return *this; }
 	Value &operator|=(const D<Value>        &other){ cc.or_(reg, OP);                DL; return *this; }
-	Value &operator|=(const D<Ref<F,Value>> &other){ cc.or_(reg, OP);                DL; return *this; }
+	Value &operator|=(const D<Ref<Value>> &other){ cc.or_(reg, OP);                DL; return *this; }
 
 	Value &operator^=(const D<int>          &other){ cc.xor_(reg, ::asmjit::imm(OP)); DL; return *this; }
 	Value &operator^=(const D<Value>        &other){ cc.xor_(reg, OP);                DL; return *this; }
-	Value &operator^=(const D<Ref<F,Value>> &other){ cc.xor_(reg, OP);                DL; return *this; }
+	Value &operator^=(const D<Ref<Value>> &other){ cc.xor_(reg, OP);                DL; return *this; }
 
 	//TODO: cannot be attributed to a source line as we cannot pass a parameter
 	//TODO: we do not know from where we are called
@@ -469,24 +469,24 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 	ASMJIT_OPERATORS_WITH_TEMPORARIES(Value)
 
 	// comparisons
-	Condition<F> operator==(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::e};  }
-	Condition<F> operator!=(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::ne}; }
-	Condition<F> operator< (const Value &other) const { return {cc, reg, other.reg, less()};  }
-	Condition<F> operator<=(const Value &other) const { return {cc, reg, other.reg, less_equal()}; }
-	Condition<F> operator> (const Value &other) const { return {cc, reg, other.reg, greater()};  }
-	Condition<F> operator>=(const Value &other) const { return {cc, reg, other.reg, greater_equal()}; }
-	Condition<F> operator==(int constant) const { return {cc, reg, constant, ConditionFlag::e};  }
-	Condition<F> operator!=(int constant) const { return {cc, reg, constant, ConditionFlag::ne}; }
-	Condition<F> operator< (int constant) const { return {cc, reg, constant, less()};  }
-	Condition<F> operator<=(int constant) const { return {cc, reg, constant, less_equal()}; }
-	Condition<F> operator> (int constant) const { return {cc, reg, constant, greater()};  }
-	Condition<F> operator>=(int constant) const { return {cc, reg, constant, greater_equal()}; }
-	Condition<F> operator==(const Ref<F,Value> &other) const { return {cc, reg, other.mem, ConditionFlag::e};  }
-	Condition<F> operator!=(const Ref<F,Value> &other) const { return {cc, reg, other.mem, ConditionFlag::ne}; }
-	Condition<F> operator< (const Ref<F,Value> &other) const { return {cc, reg, other.mem, less()};  }
-	Condition<F> operator<=(const Ref<F,Value> &other) const { return {cc, reg, other.mem, less_equal()}; }
-	Condition<F> operator> (const Ref<F,Value> &other) const { return {cc, reg, other.mem, greater()};  }
-	Condition<F> operator>=(const Ref<F,Value> &other) const { return {cc, reg, other.mem, greater_equal()}; }
+	Condition operator==(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::e};  }
+	Condition operator!=(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::ne}; }
+	Condition operator< (const Value &other) const { return {cc, reg, other.reg, less()};  }
+	Condition operator<=(const Value &other) const { return {cc, reg, other.reg, less_equal()}; }
+	Condition operator> (const Value &other) const { return {cc, reg, other.reg, greater()};  }
+	Condition operator>=(const Value &other) const { return {cc, reg, other.reg, greater_equal()}; }
+	Condition operator==(int constant) const { return {cc, reg, constant, ConditionFlag::e};  }
+	Condition operator!=(int constant) const { return {cc, reg, constant, ConditionFlag::ne}; }
+	Condition operator< (int constant) const { return {cc, reg, constant, less()};  }
+	Condition operator<=(int constant) const { return {cc, reg, constant, less_equal()}; }
+	Condition operator> (int constant) const { return {cc, reg, constant, greater()};  }
+	Condition operator>=(int constant) const { return {cc, reg, constant, greater_equal()}; }
+	Condition operator==(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::e};  }
+	Condition operator!=(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::ne}; }
+	Condition operator< (const Ref<Value> &other) const { return {cc, reg, other.mem, less()};  }
+	Condition operator<=(const Ref<Value> &other) const { return {cc, reg, other.mem, less_equal()}; }
+	Condition operator> (const Ref<Value> &other) const { return {cc, reg, other.mem, greater()};  }
+	Condition operator>=(const Ref<Value> &other) const { return {cc, reg, other.mem, greater_equal()}; }
 
 	static inline constexpr ConditionFlag less(){
 		if constexpr(std::is_signed_v<T>) return ConditionFlag::l;
@@ -506,10 +506,178 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 	}
 };
 
+template<>
+struct Value<float> final {
+	using F = ::asmjit::x86::Compiler;
+	using T = float;
+	using value_type = float;
+	asmjit::x86::Compiler &cc;
+	asmjit::x86::Xmm reg;
+
+	static_assert(sizeof(T)==4,
+		"only plain arithmetic types supported of sizes: 4 or 8 bytes");
+
+	Value(::asmjit::x86::Compiler &cc, const char *name="") : cc(cc) {
+		switch(sizeof(T)){
+			case 4: reg = cc.newXmmSs(name); break;
+			case 8: reg = cc.newXmmSd(name); break;
+		}
+	}
+#ifdef PROFILING_SOURCE
+	Value(F &cc, T val, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()) : Value(cc, name) {
+		*this = D<T>{val, file, line};
+	}
+#else
+	Value(F &cc, T val, const char *name="") : Value(cc, name) {
+		*this = val;
+	}
+#endif
+
+	// real copy means new register and copy content
+	Value(const D<Value> &other) : Value(other.cc) {
+		*this = other;
+	}
+	// move ctor
+	Value(const Value &&other) : cc(other.cc), reg(std::move(other.reg)) {}
+	// move assign
+	Value &operator=(const Value &&other){
+		reg = other.reg; // just take virtual register
+		return *this;
+	}
+
+	// copy ctor for ref, basically loads value from memory and stores in register
+	Value(const D<Ref<Value>> &other) : Value(other.cc) {
+		*this = other;
+	}
+	operator const ::asmjit::x86::Xmm&() const { return reg; }
+	operator       ::asmjit::x86::Xmm&()       { return reg; }
+	// assignment
+	Value &operator=(const Value &other) {
+		cc.movss(reg, other.reg);
+		DL;
+		return *this;
+	}
+	Value &operator=(const float other) {
+		if (other == 0){
+			cc.vpxor(reg, reg, reg);
+			DL;
+		} else {
+			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			cc.vmovss(reg, c0);
+			DL;
+		}
+		return *this;
+	}
+	Value &operator=(const Ref<Value>& other){
+		cc.movss(reg, other.mem);
+		DL;
+		return *this;
+	}
+
+	// memory operand not possible on right side
+
+	Value &operator*=(const Value& other){
+		cc.vmulss(reg, reg, other.reg);
+		DL;
+		return *this;
+	}
+
+	Value &operator/=(const Value &other){
+		cc.vdivss(reg, reg, other.reg);
+		DL;
+		return *this;
+	}
+	Value &operator+=(const Value &other){ cc.vaddss(reg, reg, other); DL; return *this; }
+	Value &operator+=(const Ref<Value> &other){ cc.vaddss(reg, reg, other); DL; return *this; }
+	
+	Value &operator-=(const Value &other){ cc.vsubss(reg, reg, other); DL; return *this; }
+	Value &operator-=(const Ref<Value> &other){ cc.vsubss(reg, reg, other); DL; return *this; }
+	Value &operator+=(const float other) {
+		if (other == 0){
+			DL;
+		} else {
+			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			cc.vaddss(reg, reg, c0);
+			DL;
+		}
+		return *this;
+	}
+	Value &operator-=(const float other) {
+		if (other == 0){
+			DL;
+		} else {
+			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			cc.vsubss(reg, reg, c0);
+			DL;
+		}
+		return *this;
+	}
+	Value &operator*=(const float other) {
+		if (other == 0){
+			cc.vpxor(reg, reg, reg);
+			DL;
+		} else {
+			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			cc.vmulss(reg, reg, c0);
+			DL;
+		}
+		return *this;
+	}
+	Value &operator/=(const float other) {
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+		cc.vdivss(reg, reg, c0);
+		DL;
+		return *this;
+	}
+	// operators creating temporary virtual registers
+	Value operator+(const Value &other){ Value tmp(cc, "tmp"); tmp = *this; tmp += other; DL; return tmp; }
+	Value operator+(const Ref<Value> &other){ Value tmp(cc, "tmp"); tmp = *this; tmp += other; DL; return tmp; }
+	Value operator-(const Value &other){ Value tmp(cc, "tmp"); tmp = *this; tmp -= other; DL; return tmp; }
+	Value operator-(const Ref<Value> &other){ Value tmp(cc, "tmp"); tmp = *this; tmp -= other; DL; return tmp; }
+	Value operator*(const Value &other){ Value tmp(cc, "tmp"); tmp = *this; tmp *= other; DL; return tmp; }
+	Value operator*(const Ref<Value> &other){ Value tmp(cc, "tmp"); tmp = *this; tmp *= other; DL; return tmp; }
+	Value operator/(const Value &other){ Value tmp(cc, "tmp"); tmp = *this; tmp /= other; DL; return tmp; }
+	Value operator/(const Ref<Value> &other){ Value tmp(cc, "tmp"); tmp = *this; tmp /= other; DL; return tmp; }
+	//ASMJIT_OPERATORS_WITH_TEMPORARIES(Value)
+
+	// comparisons
+	Condition operator==(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::e_f};  }
+	Condition operator!=(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::ne_f}; }
+	Condition operator< (const Value &other) const { return {cc, reg, other.reg, ConditionFlag::l_f};  }
+	Condition operator<=(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::le_f}; }
+	Condition operator> (const Value &other) const { return {cc, reg, other.reg, ConditionFlag::g_f};  }
+	Condition operator>=(const Value &other) const { return {cc, reg, other.reg, ConditionFlag::ge_f}; }
+	Condition operator==(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::e_f};  }
+	Condition operator!=(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::ne_f}; }
+	Condition operator< (const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::l_f};  }
+	Condition operator<=(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::le_f}; }
+	Condition operator> (const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::g_f};  }
+	Condition operator>=(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::ge_f}; }
+
+	Condition operator==(float f) const { 
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		return {cc, reg, c0, ConditionFlag::e_f};  }
+	Condition operator!=(float f) const { 
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		return {cc, reg, c0, ConditionFlag::ne_f}; }
+	Condition operator< (float f) const { 
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		return {cc, reg, c0, ConditionFlag::l_f};  }
+	Condition operator<=(float f) const { 
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		return {cc, reg, c0, ConditionFlag::le_f}; }
+	Condition operator> (float f) const { 
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		return {cc, reg, c0, ConditionFlag::g_f};  }
+	Condition operator>=(float f) const { 
+		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		return {cc, reg, c0, ConditionFlag::ge_f}; }
+};
+
 // deduction guides
-template<typename T> Value(::asmjit::x86::Compiler&, T val, const char *) -> Value<::asmjit::x86::Compiler,T>;
-template<typename FnPtr, typename T> Value(Function<runtimeasmjit,FnPtr>&, T val, const char *) -> Value<::asmjit::x86::Compiler,T>;
-template<typename T> Value(const Ref<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,T>>&) -> Value<::asmjit::x86::Compiler,T>;
+template<typename T> Value(::asmjit::x86::Compiler&, T val, const char *) -> Value<T>;
+template<typename FnPtr, typename T> Value(Function<FnPtr>&, T val, const char *) -> Value<T>;
+template<typename T> Value(const Ref<Value<T>>&) -> Value<T>;
 
 } // namespace
 

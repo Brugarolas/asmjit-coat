@@ -13,7 +13,7 @@
 namespace coat {
 
 template<typename R, typename ...Args>
-struct Function<runtimeasmjit,R(*)(Args...)>{
+struct Function<R(*)(Args...)> {
 	using CC = runtimeasmjit;
 	using F = ::asmjit::x86::Compiler;
 	using func_type = R (*)(Args...);
@@ -48,8 +48,8 @@ struct Function<runtimeasmjit,R(*)(Args...)>{
 	}
 
 	template<typename FuncSig>
-	InternalFunction<runtimeasmjit,FuncSig> addFunction(const char* /* ignore function name */){
-		return InternalFunction<runtimeasmjit,FuncSig>(cc);
+	InternalFunction<FuncSig> addFunction(const char* /* ignore function name */){
+		return InternalFunction<FuncSig>(cc);
 	}
 
 	template<class IFunc>
@@ -61,10 +61,10 @@ struct Function<runtimeasmjit,R(*)(Args...)>{
 	}
 
 	template<typename ...Names>
-	std::tuple<wrapper_type<F,Args>...> getArguments(Names... names) {
+	std::tuple<wrapper_type<Args>...> getArguments(Names... names) {
 		static_assert(sizeof...(Args) == sizeof...(Names), "not enough or too many names specified");
 		// create all parameter wrapper objects in a tuple
-		std::tuple<wrapper_type<F,Args>...> ret { wrapper_type<F,Args>(cc, names)... };
+		std::tuple<wrapper_type<Args>...> ret { wrapper_type<Args>(cc, names)... };
 		// get argument value and put it in wrapper object
 		std::apply(
 			[&](auto &&...args){
@@ -79,18 +79,18 @@ struct Function<runtimeasmjit,R(*)(Args...)>{
 
 	//HACK: trying factory
 	template<typename T>
-	Value<F,T> getValue(const char *name="") {
-		return Value<F,T>(cc, name);
+	Value<T> getValue(const char *name="") {
+		return Value<T>(cc, name);
 	}
 	// embed value in the generated code, returns wrapper initialized to this value
 	template<typename T>
 #ifdef PROFILING_SOURCE
-	wrapper_type<F,T> embedValue(T value, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()){
-		return wrapper_type<F,T>(cc, value, name, file, line);
+	wrapper_type<T> embedValue(T value, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()){
+		return wrapper_type<T>(cc, value, name, file, line);
 	}
 #else
-	wrapper_type<F,T> embedValue(T value, const char *name=""){
-		return wrapper_type<F,T>(cc, value, name);
+	wrapper_type<T> embedValue(T value, const char *name=""){
+		return wrapper_type<T>(cc, value, name);
 	}
 #endif
 
@@ -122,7 +122,7 @@ struct Function<runtimeasmjit,R(*)(Args...)>{
 
 
 template<typename R, typename ...Args>
-struct InternalFunction<runtimeasmjit,R(*)(Args...)> {
+struct InternalFunction<R(*)(Args...)> {
 	using F = ::asmjit::x86::Compiler;
 	using func_type = R (*)(Args...);
 	using return_type = R;
@@ -137,10 +137,10 @@ struct InternalFunction<runtimeasmjit,R(*)(Args...)> {
 
 
 	template<typename ...Names>
-	std::tuple<wrapper_type<F,Args>...> getArguments(Names... names) {
+	std::tuple<wrapper_type<Args>...> getArguments(Names... names) {
 		static_assert(sizeof...(Args) == sizeof...(Names), "not enough or too many names specified");
 		// create all parameter wrapper objects in a tuple
-		std::tuple<wrapper_type<F,Args>...> ret { wrapper_type<F,Args>(cc, names)... };
+		std::tuple<wrapper_type<Args>...> ret { wrapper_type<Args>(cc, names)... };
 		// get argument value and put it in wrapper object
 		std::apply(
 			[&](auto &&...args){

@@ -13,7 +13,7 @@ namespace coat {
 
 //FIXME: looks like ::asmjit::x86::Mem is copied around quite often during construction
 template<class T>
-struct Ref<::asmjit::x86::Compiler,T> {
+struct Ref {
 	using F = ::asmjit::x86::Compiler;
 	using inner_type = T;
 
@@ -57,26 +57,26 @@ struct Ref<::asmjit::x86::Compiler,T> {
 
 	// comparisons
 	// swap sides of operands and comparison, not needed for assembly, but avoids code duplication in wrapper
-	Condition<F> operator==(const T &other) const { return other==*this; }
-	Condition<F> operator!=(const T &other) const { return other!=*this; }
-	Condition<F> operator< (const T &other) const { return other>=*this; }
-	Condition<F> operator<=(const T &other) const { return other> *this; }
-	Condition<F> operator> (const T &other) const { return other<=*this; }
-	Condition<F> operator>=(const T &other) const { return other< *this; }
+	Condition operator==(const T &other) const { return other==*this; }
+	Condition operator!=(const T &other) const { return other!=*this; }
+	Condition operator< (const T &other) const { return other>=*this; }
+	Condition operator<=(const T &other) const { return other> *this; }
+	Condition operator> (const T &other) const { return other<=*this; }
+	Condition operator>=(const T &other) const { return other< *this; }
 	//TODO: possible without temporary: cmp m32 imm32, complicates Condition
-	Condition<F> operator==(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp==constant; }
-	Condition<F> operator!=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp!=constant; }
-	Condition<F> operator< (int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp< constant; }
-	Condition<F> operator<=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp<=constant; }
-	Condition<F> operator> (int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp> constant; }
-	Condition<F> operator>=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp>=constant; }
+	Condition operator==(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp==constant; }
+	Condition operator!=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp!=constant; }
+	Condition operator< (int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp< constant; }
+	Condition operator<=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp<=constant; }
+	Condition operator> (int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp> constant; }
+	Condition operator>=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp>=constant; }
 	// not possible in instruction, requires temporary
-	Condition<F> operator==(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp==other; }
-	Condition<F> operator!=(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp!=other; }
-	Condition<F> operator< (const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp< other; }
-	Condition<F> operator<=(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp<=other; }
-	Condition<F> operator> (const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp> other; }
-	Condition<F> operator>=(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp>=other; }
+	Condition operator==(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp==other; }
+	Condition operator!=(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp!=other; }
+	Condition operator< (const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp< other; }
+	Condition operator<=(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp<=other; }
+	Condition operator> (const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp> other; }
+	Condition operator>=(const Ref &other) const { T tmp(cc, "tmp"); tmp = *this; return tmp>=other; }
 };
 
 } // namespace

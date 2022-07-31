@@ -10,13 +10,11 @@
 namespace coat {
 
 template<class T>
-struct Ptr<::asmjit::x86::Compiler,T>{
+struct Ptr {
 	using F = ::asmjit::x86::Compiler;
 	using value_type = typename T::value_type;
-	using value_base_type = ValueBase<F>;
-	using mem_type = Ref<F,T>;
-
-	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of value wrappers");
+	using value_base_type = ValueBase;
+	using mem_type = Ref<T>;
 
 	::asmjit::x86::Compiler &cc; //FIXME: pointer stored in every value type
 	::asmjit::x86::Gp reg;
@@ -129,8 +127,8 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 	}
 
 	// operators creating temporary virtual registers
-	Value<F,size_t> operator- (const Ptr &other) const {
-		Value<F,size_t> ret(cc, "ret");
+	Value<size_t> operator- (const Ptr &other) const {
+		Value<size_t> ret(cc, "ret");
 		cc.mov(ret, reg);
 		cc.sub(ret, other.reg);
 		cc.sar(ret, clog2(sizeof(value_type))); // compilers also do arithmetic shift...
@@ -143,19 +141,19 @@ struct Ptr<::asmjit::x86::Compiler,T>{
 	Ptr &operator--(){ cc.sub(reg, sizeof(value_type)); return *this; }
 
 	// comparisons
-	Condition<F> operator==(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::e};  }
-	Condition<F> operator!=(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::ne}; }
+	Condition operator==(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::e};  }
+	Condition operator!=(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::ne}; }
 };
 
 
 template<typename dest_type, typename src_type>
-Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,std::remove_pointer_t<dest_type>>>
-cast(const Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,src_type>> &src){
+Ptr<Value<std::remove_pointer_t<dest_type>>>
+cast(const Ptr<Value<src_type>> &src){
 	static_assert(std::is_pointer_v<dest_type>, "a pointer type can only be casted to another pointer type");
 
 	//TODO: find a way to do it without copies but no surprises for user
 	// create new pointer with new register
-	Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,std::remove_pointer_t<dest_type>>> res(src.cc);
+	Ptr<Value<std::remove_pointer_t<dest_type>>> res(src.cc);
 	// copy pointer address between registers
 	src.cc.mov(res.reg, src.reg);
 	// return new pointer

@@ -8,12 +8,13 @@ enum class ConditionFlag {
 	//z, nz,
 	l, le, b, be,
 	g, ge, a, ae,
+	// float
+	e_f, ne_f,
+	l_f, le_f,
+	g_f, ge_f,
 };
 
-
-template<class CC>
 struct Condition;
-
 } // namespace
 
 #ifdef ENABLE_ASMJIT

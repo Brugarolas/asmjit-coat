@@ -9,7 +9,7 @@
 namespace coat {
 
 template<typename T, unsigned width>
-struct Vector<::asmjit::x86::Compiler,T,width> final {
+struct Vector final {
 	using F = ::asmjit::x86::Compiler;
 	using value_type = T;
 	
@@ -43,9 +43,9 @@ struct Vector<::asmjit::x86::Compiler,T,width> final {
 	inline unsigned getWidth() const { return width; }
 
 	// load vector from memory, always unaligned load
-	Vector &operator=(Ref<F,Value<F,T>> &&src){ load(std::move(src)); return *this; }
+	Vector &operator=(Ref<Value<T>> &&src){ load(std::move(src)); return *this; }
 	// load vector from memory, always unaligned load
-	void load(Ref<F,Value<F,T>> &&src){
+	void load(Ref<Value<T>> &&src){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			src.mem.setSize(16); // change to xmmword
@@ -58,7 +58,7 @@ struct Vector<::asmjit::x86::Compiler,T,width> final {
 	}
 
 	// unaligned store
-	void store(Ref<F,Value<F,T>> &&dest) const {
+	void store(Ref<Value<T>> &&dest) const {
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			dest.mem.setSize(16); // change to xmmword
@@ -91,7 +91,7 @@ struct Vector<::asmjit::x86::Compiler,T,width> final {
 		}
 		return *this;
 	}
-	Vector &operator+=(Ref<F,Value<F,T>> &&other){
+	Vector &operator+=(Ref<Value<T>> &&other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			other.mem.setSize(16); // change to xmmword
@@ -134,7 +134,7 @@ struct Vector<::asmjit::x86::Compiler,T,width> final {
 		}
 		return *this;
 	}
-	Vector &operator-=(Ref<F,Value<F,T>> &&other){
+	Vector &operator-=(Ref<Value<T>> &&other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			other.mem.setSize(16); // change to xmmword
@@ -321,8 +321,8 @@ struct Vector<::asmjit::x86::Compiler,T,width> final {
 
 
 template<int width, typename T>
-Vector<::asmjit::x86::Compiler,T,width> make_vector(::asmjit::x86::Compiler &cc, Ref<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,T>> &&src){
-	Vector<::asmjit::x86::Compiler,T,width> v(cc);
+Vector<T, width> make_vector(::asmjit::x86::Compiler &cc, Ref<Value<T>> &&src){
+	Vector<T, width> v(cc);
 	v = std::move(src);
 	return v;
 }

@@ -12,9 +12,9 @@ namespace coat {
 
 
 template<typename T>
-struct Struct<::asmjit::x86::Compiler,T>
+struct Struct
 	: public std::conditional_t<has_custom_base<T>::value,
-								StructBase<Struct<::asmjit::x86::Compiler,T>>,
+								StructBase<Struct<T>>,
 								StructBaseEmpty
 			>
 {
@@ -67,7 +67,7 @@ struct Struct<::asmjit::x86::Compiler,T>
 	}
 
 	template<int I>
-	Ref<F,reg_type<F,std::tuple_element_t<I, typename T::types>>> get_reference(){
+	Ref<reg_type<std::tuple_element_t<I, typename T::types>>> get_reference(){
 		switch(sizeof(std::tuple_element_t<I, typename T::types>)){
 			case 1: return {cc, ::asmjit::x86:: byte_ptr(reg, offset_of_v<I, typename T::types> + offset)};
 			case 2: return {cc, ::asmjit::x86:: word_ptr(reg, offset_of_v<I, typename T::types> + offset)};
@@ -77,14 +77,14 @@ struct Struct<::asmjit::x86::Compiler,T>
 	}
 
 	template<int I>
-	wrapper_type<F,std::tuple_element_t<I, typename T::types>> get_value(
+	wrapper_type<std::tuple_element_t<I, typename T::types>> get_value(
 		const char *name=""
 #ifdef PROFILING_SOURCE
 		,const char *file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 	) const {
 		using type = std::tuple_element_t<I, typename T::types>;
-		wrapper_type<F,type> ret(cc, name);
+		wrapper_type<type> ret(cc, name);
 		if constexpr(std::is_array_v<type>){
 			// array decay to pointer, just add offset to struct pointer
 			//TODO: could just use struct pointer with fixed offset, no need for new register, similar to nested struct

@@ -15,7 +15,7 @@
 #define ASMJIT_OPERATOR_VALUE(R, OP) \
 	R operator OP(const D<R> &other) const { R tmp(cc, "tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
 #define ASMJIT_OPERATOR_REF(R, OP) \
-	R operator OP(const D<Ref<F,R>> &other) const { R tmp(cc, "tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
+	R operator OP(const D<Ref<R>> &other) const { R tmp(cc, "tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
 
 #else
 
@@ -24,7 +24,7 @@
 #define ASMJIT_OPERATOR_VALUE(R, OP) \
 	R operator OP(const R &other) const { R tmp(cc, "tmp"); tmp = *this; tmp OP##= other; return tmp; }
 #define ASMJIT_OPERATOR_REF(R, OP) \
-	R operator OP(const Ref<F,R> &other) const { R tmp(cc, "tmp"); tmp = *this; tmp OP##= other; return tmp; }
+	R operator OP(const Ref<R> &other) const { R tmp(cc, "tmp"); tmp = *this; tmp OP##= other; return tmp; }
 
 #endif
 

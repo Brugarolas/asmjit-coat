@@ -3,7 +3,6 @@
 
 namespace coat {
 
-template<class CC>
 struct Label;
 
 } // namespace
