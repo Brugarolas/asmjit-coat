@@ -9,7 +9,7 @@
 namespace coat {
 
 template<typename T, unsigned width>
-struct Vector final {
+struct Vec final {
 	using F = ::asmjit::x86::Compiler;
 	using value_type = T;
 	
@@ -30,7 +30,7 @@ struct Vector final {
 
 	F &cc; //FIXME: pointer stored in every value type
 
-	Vector(F &cc, const char *name="") : cc(cc){
+	Vec(F &cc, const char *name="") : cc(cc){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			reg = cc.newXmm(name);
@@ -42,10 +42,10 @@ struct Vector final {
 
 	inline unsigned getWidth() const { return width; }
 
-	// load vector from memory, always unaligned load
-	Vector &operator=(Ref<Value<T>> &&src){ load(std::move(src)); return *this; }
-	// load vector from memory, always unaligned load
-	void load(Ref<Value<T>> &&src){
+	// load Vec from memory, always unaligned load
+	Vec &operator=(Ref<Value<T>>&& src){ load(std::move(src)); return *this; }
+	// load Vec from memory, always unaligned load
+	void load(Ref<Value<T>>&& src){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			src.mem.setSize(16); // change to xmmword
@@ -58,7 +58,7 @@ struct Vector final {
 	}
 
 	// unaligned store
-	void store(Ref<Value<T>> &&dest) const {
+	void store(Ref<Value<T>>&& dest) const {
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			dest.mem.setSize(16); // change to xmmword
@@ -71,7 +71,7 @@ struct Vector final {
 	}
 	//TODO: aligned load & store
 
-	Vector &operator+=(const Vector &other){
+	Vec &operator+=(const Vec &other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			switch(sizeof(T)){
@@ -91,7 +91,7 @@ struct Vector final {
 		}
 		return *this;
 	}
-	Vector &operator+=(Ref<Value<T>> &&other){
+	Vec &operator+=(Ref<Value<T>>&& other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			other.mem.setSize(16); // change to xmmword
@@ -114,7 +114,7 @@ struct Vector final {
 		return *this;
 	}
 
-	Vector &operator-=(const Vector &other){
+	Vec &operator-=(const Vec &other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			switch(sizeof(T)){
@@ -134,7 +134,7 @@ struct Vector final {
 		}
 		return *this;
 	}
-	Vector &operator-=(Ref<Value<T>> &&other){
+	Vec &operator-=(Ref<Value<T>>&& other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			other.mem.setSize(16); // change to xmmword
@@ -157,7 +157,7 @@ struct Vector final {
 		return *this;
 	}
 
-	Vector &operator/=(int amount){
+	Vec &operator/=(int amount){
 		if(is_power_of_two(amount)){
 			operator>>=(clog2(amount));
 		}else{
@@ -167,7 +167,7 @@ struct Vector final {
 		return *this;
 	}
 
-	Vector &operator<<=(int amount){
+	Vec &operator<<=(int amount){
 		static_assert(sizeof(T) > 1, "shift does not support byte element size");
 		// shift left same for signed and unsigned types
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
@@ -187,7 +187,7 @@ struct Vector final {
 		}
 		return *this;
 	}
-	Vector &operator<<=(const Vector &other){
+	Vec &operator<<=(const Vec &other){
 		static_assert(sizeof(T) > 1, "shift does not support byte element size");
 		// shift left same for signed and unsigned types
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
@@ -208,7 +208,7 @@ struct Vector final {
 		return *this;
 	}
 
-	Vector &operator>>=(int amount){
+	Vec &operator>>=(int amount){
 		static_assert(sizeof(T) > 1, "shift does not support byte element size");
 		static_assert(!(std::is_signed_v<T> && sizeof(T) == 8), "no arithmetic shift right for 64 bit values");
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
@@ -242,7 +242,7 @@ struct Vector final {
 		}
 		return *this;
 	}
-	Vector &operator>>=(const Vector &other){
+	Vec &operator>>=(const Vec &other){
 		static_assert(sizeof(T) > 1, "shift does not support byte element size");
 		static_assert(!(std::is_signed_v<T> && sizeof(T) == 8), "no arithmetic shift right for 64 bit values");
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
@@ -277,7 +277,7 @@ struct Vector final {
 		return *this;
 	}
 
-	Vector &operator&=(const Vector &other){
+	Vec &operator&=(const Vec &other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			cc.pand(reg, other);
@@ -287,7 +287,7 @@ struct Vector final {
 		}
 		return *this;
 	}
-	Vector &operator|=(const Vector &other){
+	Vec &operator|=(const Vec &other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			cc.por(reg, other);
@@ -297,7 +297,7 @@ struct Vector final {
 		}
 		return *this;
 	}
-	Vector &operator^=(const Vector &other){
+	Vec &operator^=(const Vec &other){
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
 			// 128 bit SSE
 			cc.pxor(reg, other);
@@ -307,22 +307,218 @@ struct Vector final {
 		}
 		return *this;
 	}
-	/*Vector &andnot(const Vector &other){
-		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
-			// 128 bit SSE
-			cc.pandn(reg, other);
-		}else{
-			// 256 bit AVX
-			cc.vpandn(reg, reg, other);
-		}
-		return *this;
-	}*/
 };
 
+template<unsigned width>
+struct Vec<float, width> final {
+	using F = ::asmjit::x86::Compiler;
+	using T = float;
+
+	static_assert(sizeof(T) * width == 128 / 8 || sizeof(T) * width == 256 / 8 ||
+		sizeof(T) * width == 512 / 8,
+		"only 128-bit, 256-bit or 512-bit vector instructions supported at the moment");
+
+	using reg_type = std::conditional_t<sizeof(T) * width == 128 / 8,
+						asmjit::x86::Xmm, std::conditional_t<sizeof(T) * width == 256 / 8,
+						asmjit::x86::Ymm,
+						asmjit::x86::Zmm>
+					>;
+	F &cc;
+	reg_type reg;
+
+	Vec(F &cc, bool zero = false, const char *name="") : cc(cc) {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
+			// 128 bit SSE
+			reg = cc.newXmm(name);
+			if (zero)
+				cc.pxor(reg, reg);
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			// 256 bit AVX
+			reg = cc.newYmm(name);
+			if (zero)
+				cc.vpxor(reg, reg, reg);
+		} else {
+			reg = cc.newZmm(name);
+			if (zero)
+				cc.vpxor(reg, reg);
+		}
+	}
+	Vec(const Vec& other) : cc(other.cc), reg(other.reg) {}
+	inline unsigned getWidth() const { return width; }
+
+	Vec &operator=(float v) {
+		if (v == 0) {
+			if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
+				cc.pxor(reg, reg);
+			} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+				cc.vpxor(reg, reg, reg);
+			} else {
+				cc.vpxor(reg, reg, reg);
+			}
+		} else {
+			auto src = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, v);
+			if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
+				cc.movss(reg, src);
+				cc.shufps(reg, reg, 0);
+			} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				cc.vbroadcastss(reg, src);
+			}
+		}
+		return *this;
+	}
+	// load Vec from memory, always unaligned load
+	Vec &operator=(Ref<Value<T>>&& src) { load(std::move(src)); return *this; }
+	// TODO: support mask
+	void load(Ref<Value<T>>&& src, bool broadcast = false) {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
+			if (broadcast) {
+				cc.movss(reg, src);
+				cc.shufps(reg, reg, 0);
+			} else {
+				src.mem.setSize(16); // change to xmmword
+				cc.movdqu(reg, src);
+			}
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			if (broadcast) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				src.mem.setSize(32); // change to ymmword
+				cc.vmovdqu(reg, src);
+			}
+		} else {
+			if (broadcast) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				src.mem.setSize(64); // change to zmmword
+				cc.vmovdqu(reg, src);
+			}
+		}
+	}
+	// unaligned store
+	void store(Ref<Value<T>>&& dest) const {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
+			// 128 bit SSE
+			dest.mem.setSize(16); // change to xmmword
+			cc.movdqu(dest, reg);
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			// 256 bit AVX
+			dest.mem.setSize(32); // change to ymmword
+			cc.vmovdqu(dest, reg);
+		} else {
+			dest.mem.setSize(64); // change to zmmword
+			cc.vmovdqu(dest, reg);			
+		}
+	}
+	void load_aligned(Ref<Value<T>>&& src, bool broadcast = false) {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
+			if (broadcast) {
+				cc.movss(reg, src);
+				cc.shufps(reg, reg, 0);
+			} else {
+				src.mem.setSize(16); // change to xmmword
+				cc.movdqa(reg, src);
+			}
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			if (broadcast) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				src.mem.setSize(32); // change to ymmword
+				cc.vmovdqa(reg, src);
+			}
+		} else {
+			if (broadcast) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				src.mem.setSize(64); // change to zmmword
+				cc.vmovdqa(reg, src);
+			}
+		}
+	}
+	void store_aligned(Ref<Value<T>>&& dest) const {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
+			// 128 bit SSE
+			dest.mem.setSize(16); // change to xmmword
+			cc.movdqa(dest, reg);
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			// 256 bit AVX
+			dest.mem.setSize(32); // change to ymmword
+			cc.vmovdqa(dest, reg);
+		} else {
+			dest.mem.setSize(64); // change to zmmword
+			cc.vmovdqa(dest, reg);			
+		}
+	}	
+	Vec& add(const Vec& other) {
+		cc.vaddps(reg, reg, other.reg);
+		return *this;
+	}
+	Vec& add(Ref<Value<T>>&& other) {
+		cc.vaddps(reg, reg, other);
+		return *this;
+	}
+	Vec& sub(const Vec& other){
+		cc.vsubps(reg, reg, other.reg);
+		return *this;
+	}
+	Vec& sub(Ref<Value<T>>&& other) {
+		cc.vsubps(reg, reg, other);
+		return *this;
+	}
+	Vec& mul(const Vec& other) {
+		cc.vmulps(reg, reg, other.reg);
+		return *this;
+	}
+	Vec& mul(Ref<Value<T>>&& other) {
+		cc.vmulps(reg, reg, other);
+		return *this;
+	}
+	Vec& div(const Vec& other) {
+		cc.vdivps(reg, reg, other.reg);
+		return *this;
+	}
+	Vec& div(Ref<Value<T>>&& other) {
+		cc.vdivps(reg, reg, other);
+		return *this;
+	}
+	Vec& fma231(const Vec& x, const Vec& y) {
+		cc.vfmadd231ps(reg, x.reg, y.reg);
+		return *this;
+	}
+	Vec& fma231(const Vec& x, const Ref<Value<T>>&& y) {
+		cc.vfmadd231ps(reg, x.reg, y);
+		return *this;
+	}	
+	Vec& operator+=(const Vec& other) {
+		return add(other);
+	}
+	Vec& operator+=(Ref<Value<T>>&& other) {
+		return add(other);
+	}
+	Vec& operator-=(const Vec& other){
+		return sub(other);
+	}
+	Vec& operator-=(Ref<Value<T>>&& other) {
+		return sub(other);
+	}
+	Vec& operator*=(const Vec& other) {
+		return mul(other);
+	}
+	Vec& operator*=(Ref<Value<T>>&& other) {
+		return mul(other);
+	}
+	Vec& operator/=(const Vec& other) {
+		return div(other);
+	}
+	Vec& operator/=(Ref<Value<T>>&& other) {
+		return div(other);
+	}
+};
 
 template<int width, typename T>
-Vector<T, width> make_vector(::asmjit::x86::Compiler &cc, Ref<Value<T>> &&src){
-	Vector<T, width> v(cc);
+Vec<T, width> make_vector(::asmjit::x86::Compiler &cc, Ref<Value<T>>&& src){
+	Vec<T, width> v(cc);
 	v = std::move(src);
 	return v;
 }

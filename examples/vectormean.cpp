@@ -7,7 +7,7 @@
 
 #include <coat/Function.h>
 #include <coat/ControlFlow.h>
-#include <coat/Vector.h>
+#include <coat/Vec.h>
 
 
 // function signature

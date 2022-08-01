@@ -108,3 +108,7 @@ endif()
 add_executable(test_float test_float.cpp)
 target_compile_definitions(test_float PRIVATE "ENABLE_ASMJIT")
 target_link_libraries(test_float ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+
+add_executable(test_vecf test_vecf.cpp)
+target_compile_definitions(test_vecf PRIVATE "ENABLE_ASMJIT")
+target_link_libraries(test_vecf ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
