@@ -27,7 +27,7 @@ namespace coat {
 
 // declares private members and public enum and types
 #define COAT_DECLARE_PRIVATE(members)          \
-private:                                       \
+public:                                        \
 	members(COAT_STRUCT_MEMBER)                \
 public:                                        \
 	enum member_ids : int {                    \

@@ -21,7 +21,7 @@ using reg_type = std::conditional_t<std::is_pointer_v<T>,
 template<typename T>
 using wrapper_type = std::conditional_t<std::is_arithmetic_v<std::remove_pointer_t<std::decay_t<T>>>,
 						reg_type<std::decay_t<T>>,
-						Struct<std::remove_cv_t<std::remove_pointer_t<T>>>
+						Struct<std::remove_extent_t<std::remove_cv_t<std::remove_pointer_t<T>>>>
 					>;
 
 template<typename T>

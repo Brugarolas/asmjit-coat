@@ -59,10 +59,17 @@ struct Struct
 
 	// pre-increment
 	Struct &operator++(){ cc.add(reg, sizeof(T)); return *this; }
+	Struct operator[](int amount) {
+		Struct res(cc);
+		res.reg = reg; // pass ptr register
+		res.offset = amount*sizeof(T) + offset; // change offset
+		return res;
+	}
 
 	Struct operator+ (int amount) const {
 		Struct res(cc);
-		cc.lea(res, ::asmjit::x86::ptr(reg, amount*sizeof(T)));
+		res.reg = reg; // pass ptr register
+		res.offset = amount*sizeof(T) + offset; // change offset
 		return res;
 	}
 
@@ -85,10 +92,15 @@ struct Struct
 	) const {
 		using type = std::tuple_element_t<I, typename T::types>;
 		wrapper_type<type> ret(cc, name);
-		if constexpr(std::is_array_v<type>){
+		if constexpr(std::is_floating_point_v<type>) {
+			cc.movss(ret.reg, ::asmjit::x86::dword_ptr(reg, offset_of_v<I,typename T::types> + offset));
+		} else if constexpr(std::is_array_v<type>) {
 			// array decay to pointer, just add offset to struct pointer
 			//TODO: could just use struct pointer with fixed offset, no need for new register, similar to nested struct
-			cc.lea(ret.reg, ::asmjit::x86::ptr(reg, offset_of_v<I,typename T::types> + offset));
+			//cc.lea(ret.reg, ::asmjit::x86::ptr(reg, offset_of_v<I,typename T::types> + offset));
+			ret.reg = reg; // pass ptr register
+			ret.offset = offset + offset_of_v<I,typename T::types>; // change offset
+
 #ifdef PROFILING_SOURCE
 			((PerfCompiler&)cc).attachDebugLine(file, line);
 #endif
