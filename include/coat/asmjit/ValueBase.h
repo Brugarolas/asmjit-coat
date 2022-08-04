@@ -13,6 +13,7 @@ struct ValueBase {
 	::asmjit::x86::Gp reg;
 
 	ValueBase(::asmjit::x86::Compiler &cc) : cc(cc) {}
+	ValueBase(::asmjit::x86::Compiler &cc, asmjit::x86::Gp reg) : cc(cc), reg(reg) {}
 	//ValueBase(const ValueBase &other) : cc(other.cc), reg(other.reg) {}
 	ValueBase(const ValueBase &&other) : cc(other.cc), reg(other.reg) {}
 

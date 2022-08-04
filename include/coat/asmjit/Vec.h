@@ -344,6 +344,7 @@ struct Vec<float, width> final {
 		}
 	}
 	Vec(const Vec& other) : cc(other.cc), reg(other.reg) {}
+	Vec(F &cc, reg_type reg) : cc(cc), reg(reg) {}
 	inline unsigned getWidth() const { return width; }
 
 	Vec &operator=(float v) {
@@ -411,6 +412,20 @@ struct Vec<float, width> final {
 			cc.vmovdqu(dest, reg);			
 		}
 	}
+	void store(Ref<Value<int8_t>>&& dest) const {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
+			// 128 bit SSE
+			dest.mem.setSize(16); // change to xmmword
+			cc.movdqu(dest, reg);
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			// 256 bit AVX
+			dest.mem.setSize(32); // change to ymmword
+			cc.vmovdqu(dest, reg);
+		} else {
+			dest.mem.setSize(64); // change to zmmword
+			cc.vmovdqu(dest, reg);			
+		}
+	}	
 	void load_aligned(Ref<Value<T>>&& src, bool broadcast = false) {
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
 			if (broadcast) {

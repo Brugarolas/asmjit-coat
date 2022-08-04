@@ -116,3 +116,7 @@ target_link_libraries(test_vecf ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
 add_executable(test_struct test_struct.cpp)
 target_compile_definitions(test_struct PRIVATE "ENABLE_ASMJIT")
 target_link_libraries(test_struct ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+
+add_executable(matmul matmul.cpp)
+target_compile_definitions(matmul PRIVATE "ENABLE_ASMJIT")
+target_link_libraries(matmul ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})

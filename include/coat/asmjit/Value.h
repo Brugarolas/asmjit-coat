@@ -47,6 +47,7 @@ struct Value final : public ValueBase {
 			}
 		}
 	}
+	Value(::asmjit::x86::Compiler &cc, asmjit::x86::Gp reg) : ValueBase(cc, reg) {}
 #ifdef PROFILING_SOURCE
 	Value(F &cc, T val, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()) : Value(cc, name) {
 		*this = D<T>{val, file, line};

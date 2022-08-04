@@ -22,7 +22,8 @@ struct Ptr {
 	Ptr(F &cc, const char *name="") : cc(cc) {
 		reg = cc.newIntPtr(name);
 	}
-
+	Ptr(F &cc, asmjit::x86::Gp reg) : cc(cc), reg(reg) {
+	}
 #ifdef PROFILING_SOURCE
 	Ptr(F &cc, value_type *val, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()) : Ptr(cc, name) {
 		*this = D<value_type*>{val, file, line};
@@ -143,6 +144,18 @@ struct Ptr {
 	// comparisons
 	Condition operator==(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::e};  }
 	Condition operator!=(const Ptr &other) const { return {cc, reg, other.reg, ConditionFlag::ne}; }
+
+	// cast to any pointer type
+	template<typename dest_type>
+	Ptr<Value<dest_type>>
+	cast() {
+		Ptr<Value<dest_type>> res(cc, reg);
+		return res;
+	}
+	// index: [base.reg + (idx << shift) + offset]
+	mem_type index(const value_base_type &idx, int offset){
+		return {cc, ::asmjit::x86::ptr (reg, idx.reg, clog2(sizeof(value_type)), offset)};
+	}	
 };
 
 
