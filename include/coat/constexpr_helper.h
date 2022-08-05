@@ -13,9 +13,19 @@ inline constexpr bool is_power_of_two(unsigned value){
 }
 
 // helper function, not defined for long as it is only used to convert literals
-inline constexpr int clog2(int x){
-	static_assert(sizeof(int)==4, "int not 32 bit wide");
-	return (8*sizeof(x) - 1) - __builtin_clz(x);
+inline constexpr int clog2(int x) {
+	switch (x)
+	{
+	case 1: return 0;
+	case 2: return 1;
+	case 4: return 2;
+	case 8: return 3;
+	default:
+		assert(false);
+	}
+	return 0;
+	// static_assert(sizeof(int)==4, "int not 32 bit wide");
+	// return (8*sizeof(x) - 1) - __builtin_clz(x);
 }
 
 // for use in if-constexpr() and static_assert()

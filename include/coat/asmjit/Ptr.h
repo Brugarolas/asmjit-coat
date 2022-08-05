@@ -155,6 +155,10 @@ struct Ptr {
 	// index: [base.reg + (idx << shift) + offset]
 	mem_type index(const value_base_type &idx, int offset){
 		return {cc, ::asmjit::x86::ptr (reg, idx.reg, clog2(sizeof(value_type)), offset)};
+	}
+	// index: [base.reg + (idx << shift) + offset], scale = 1 << shift
+	mem_type index(const value_base_type &idx, int scale, int offset){
+		return {cc, ::asmjit::x86::ptr (reg, idx.reg, clog2(scale), offset)};
 	}	
 };
 

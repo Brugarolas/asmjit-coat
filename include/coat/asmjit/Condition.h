@@ -6,6 +6,7 @@
 #include <variant>
 
 #include <asmjit/asmjit.h>
+#include <assert.h>
 
 
 namespace coat {
@@ -54,7 +55,7 @@ struct Condition {
 			case ConditionFlag::g_f : newcond = ConditionFlag::le_f; break;
 			case ConditionFlag::ge_f: newcond = ConditionFlag::l_f ; break;
 			default:
-				__builtin_trap(); //FIXME: crash
+				assert(false);
 		}
 		if (is_float)
 			return {cc, reg_xmm, operand, newcond};
@@ -74,7 +75,7 @@ struct Condition {
 				case 2: cc.cmp(reg, std::get<::asmjit::x86::Mem>(operand)); break;
 
 				default:
-					__builtin_trap(); //FIXME: crash
+					assert(false);
 			}
 		} else {
 			// 

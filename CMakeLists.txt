@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 if(NOT DEFINED CMAKE_CXX_FLAGS)
-	set(CMAKE_CXX_FLAGS "-Wall -Wextra -march=native -fno-rtti" CACHE STRING "Flags used by the compiler during all build types.")
+	#set(CMAKE_CXX_FLAGS "-Wall -Wextra -march=native -fno-rtti" CACHE STRING "Flags used by the compiler during all build types.")
 endif()
 # build type defaults to release
 if(NOT DEFINED CMAKE_BUILD_TYPE)
@@ -34,15 +34,15 @@ if(ENABLE_ASMJIT)
 	include_directories(${ASMJIT_INCLUDE_DIR})
 
 	# find asmjit_perf
-	find_path(ASMJIT_PERF_INCLUDE_DIR
-		asmjit-utilities/perf/jitdump.h
-		HINTS external/
-	)
-	find_library(ASMJIT_PERF_LIBRARIES
-		asmjit_perf
-		HINTS external/asmjit-utilities
-		PATH_SUFFIXES perf/build
-	)
+	# find_path(ASMJIT_PERF_INCLUDE_DIR
+	# 	asmjit-utilities/perf/jitdump.h
+	# 	HINTS external/
+	# )
+	# find_library(ASMJIT_PERF_LIBRARIES
+	# 	asmjit_perf
+	# 	HINTS external/asmjit-utilities
+	# 	PATH_SUFFIXES perf/build
+	# )
 	include_directories(${ASMJIT_PERF_INCLUDE_DIR})
 endif()
 

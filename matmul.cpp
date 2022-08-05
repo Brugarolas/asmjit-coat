@@ -129,7 +129,136 @@ void jit_memset0(asmjit::x86::Compiler &cc, coat::Ptr<coat::Value<int8_t>> p, si
     }
 }
 
-using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
+static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc) {
+#define A(i, j) a[(j) + (i) * lda]
+#define B(i, j) b[(j) + (i) * ldb]
+#define C(i, j) c[(j) + (i) * ldc]
+
+    int i, j, p;
+    for (i = 0; i < M; i++) {
+        for (j = 0; j < N; j++) {
+            C(i, j) = 0;
+            for (p = 0; p < K; p++) {
+                C(i, j) += A(i, p) * B(p, j);
+            }
+        }
+    }
+}
+
+coat::runtimeasmjit asmrt;
+//using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
+using func_t = void (*)(float* a, float* b, float* c);
+template <unsigned width>
+func_t makeMatmul(int M, int N, int K, int lda, int ldb, int ldc) {
+	// initialize backend, AsmJit in this case
+	// context object representing the generated function
+	auto fn = asmrt.createFunction<func_t>();
+#if ENABLE_DUMP
+	fn.enableCodeDump();
+#endif
+	{
+		auto [a, b, c] = fn.getArguments("a", "b", "c");
+        jit_memset0<width>(fn.cc, c.cast<int8_t>(), M * N * sizeof(float));
+        coat::Vec<float, width> regCi0(fn.cc), regCi1(fn.cc), regCi2(fn.cc), regCi3(fn.cc);
+        coat::Vec<float, width> regA0i0(fn.cc), regA0i1(fn.cc), regA0i2(fn.cc), regA0i3(fn.cc), regB0(fn.cc);
+        coat::Vec<float, width> regA1i0(fn.cc), regA1i1(fn.cc), regA1i2(fn.cc), regA1i3(fn.cc), regB1(fn.cc);
+        coat::Vec<float, width> regA2i0(fn.cc), regA2i1(fn.cc), regA2i2(fn.cc), regA2i3(fn.cc), regB2(fn.cc);
+        coat::Vec<float, width> regA3i0(fn.cc), regA3i1(fn.cc), regA3i2(fn.cc), regA3i3(fn.cc), regB3(fn.cc);
+
+        coat::Value i(fn.cc, int(0), "i");
+        auto m_a = a;
+        auto m_c = c;
+        coat::loop_while(fn.cc, i < M, [&] {
+        //for (i = 0; i < params_c.m / 4 * 4; i += 4) {
+            coat::Value p(fn.cc, int(0), "p");
+            auto m_b = b;
+            auto p_a = m_a;
+            coat::loop_while(fn.cc, p < K, [&] {
+            //for (p = 0; p < params_c.k; p += 4) { // TODO: handle tail
+                // p[pos + 1 * vectorsize * sizeof(float)]
+                //zero.store(p.index(pos, 0 * vectorsize * sizeof(float)));
+
+                regA0i0.load(p_a[0], true);
+                regA1i0.load(p_a[1], true);
+                regA2i0.load(p_a[2], true);
+                regA3i0.load(p_a[3], true);
+                regA0i1.load(p_a[0 + 1 * lda / sizeof(float)], true);
+                regA1i1.load(p_a[1 + 1 * lda / sizeof(float)], true);
+                regA2i1.load(p_a[2 + 1 * lda / sizeof(float)], true);
+                regA3i1.load(p_a[3 + 1 * lda / sizeof(float)], true);
+                // regA0i2.load(m_a.index(p, 0 * sizeof(float) + 2 * lda), true);
+                // regA1i2.load(m_a.index(p, 1 * sizeof(float) + 2 * lda), true);
+                // regA2i2.load(m_a.index(p, 2 * sizeof(float) + 2 * lda), true);
+                // regA3i2.load(m_a.index(p, 3 * sizeof(float) + 2 * lda), true);
+                // regA0i3.load(m_a.index(p, 0 * sizeof(float) + 3 * lda), true);
+                // regA1i3.load(m_a.index(p, 1 * sizeof(float) + 3 * lda), true);
+                // regA2i3.load(m_a.index(p, 2 * sizeof(float) + 3 * lda), true);
+                // regA3i3.load(m_a.index(p, 3 * sizeof(float) + 3 * lda), true);
+                coat::Value j(fn.cc, int(0), "j");
+                coat::loop_while(fn.cc, j < N, [&] {
+                //for (j = 0; j < params_c.n; j += width) { // TODO: handle tail
+                    // ptrC0 = &C(i, j);
+                    // ptrC1 = &C(i + 1, j);
+                    // ptrC2 = &C(i + 2, j);
+                    // ptrC3 = &C(i + 3, j);
+                    regCi0.load(m_c.index(j, 0));
+                    regCi1.load(m_c.index(j, 1 * ldc));
+                    // regCi2.load(m_c.index(j, 2 * ldc));
+                    // regCi3.load(m_c.index(j, 3 * ldc));
+
+                    regB0.load(m_b.index(j, 0));
+                    regB1.load(m_b.index(j, 1 * ldb));
+                    regB2.load(m_b.index(j, 2 * ldb));
+                    regB3.load(m_b.index(j, 3 * ldb));
+                    regCi0 += (regA0i0 * regB0 + regA1i0 * regB1) + 
+                            (regA2i0 * regB2 + regA3i0 * regB3);
+                    regCi1 += (regA0i1 * regB0 + regA1i1 * regB1) + 
+                            (regA2i1 * regB2 + regA3i1 * regB3);
+                    // regCi2 += regA0i2 * regB0 + regA1i2 * regB1 + 
+                    //         regA2i2 * regB2 + regA3i2 * regB3;
+                    // regCi3 += regA0i3 * regB0 + regA1i3 * regB1 + 
+                    //         regA2i3 * regB2 + regA3i3 * regB3;
+                    regCi0.store(m_c.index(j, 0));
+                    regCi1.store(m_c.index(j, 1 * ldc));
+                    // regCi2.store(m_c.index(j, 2 * ldc));
+                    // regCi3.store(m_c.index(j, 3 * ldc));
+                    j += width;
+                });
+                p += 4;
+                m_b += 4 * ldb / sizeof(float);
+                p_a += 4;
+            });
+            i += 2;
+            m_a += 2 * lda / sizeof(float);
+            m_c += 2 * ldc / sizeof(float);
+        });
+        /*for (; i < params_c.m; i++) {
+            for (p = 0; p < params_c.k; p += 4) { // TODO: handle tail
+                regA0i0 = b_t<Type, Arch>(A(i, p + 0));
+                regA1i0 = b_t<Type, Arch>(A(i, p + 1));
+                regA2i0 = b_t<Type, Arch>(A(i, p + 2));
+                regA3i0 = b_t<Type, Arch>(A(i, p + 3));
+                for (j = 0; j < params_c.n; j += inc) { // TODO: handle tail
+                    ptrC0 = &C(i, j);
+                    regCi0 = b_t<Type, Arch>::load(ptrC0, xsimd::unaligned_mode());
+                    regB0 = b_t<Type, Arch>::load(&B(p + 0, j), xsimd::unaligned_mode());
+                    regB1 = b_t<Type, Arch>::load(&B(p + 1, j), xsimd::unaligned_mode());
+                    regB2 = b_t<Type, Arch>::load(&B(p + 2, j), xsimd::unaligned_mode());
+                    regB3 = b_t<Type, Arch>::load(&B(p + 3, j), xsimd::unaligned_mode());
+                    regCi0 += regA0i0 * regB0 + regA1i0 * regB1 + 
+                            regA2i0 * regB2 + regA3i0 * regB3;
+                    regCi0.store_unaligned(ptrC0);
+                }
+            }
+        }*/
+		// specify return value
+		coat::ret(fn);
+	}
+
+	// finalize code generation and get function pointer to the generated function
+	func_t foo = fn.finalize();
+    return foo;
+}
 /*
 void matmulT(Arch*, const MatmulConstParam params_c, const MatmulMutableParam& params_m, const FuseConstAlgParamPrivate<Type, Arch> fuse_params_c, const FuseMutableParams& fuse_params_m) {
     constexpr std::size_t inc = b_t<Type, Arch>::size;
@@ -311,6 +440,19 @@ void test_struct() {
 	}
 }
 
+void test_matmul() {
+    int M, N, K;
+    M = N = K = 400;
+    std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
+    auto f = makeMatmul<8>(M, N, K, M * 4, N * 4, M * 4);
+    f(a.data(), b.data(), c.data());
+    matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, M, N, M);
+    if(c == c_ref) {
+		printf("correct \n");
+	} else {
+		printf("wrong result\n");
+	}
+}
 int main(){
-	test_struct();
+	test_matmul();
 }

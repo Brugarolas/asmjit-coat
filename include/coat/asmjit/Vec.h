@@ -529,6 +529,15 @@ struct Vec<float, width> final {
 	Vec& operator/=(Ref<Value<T>>&& other) {
 		return div(other);
 	}
+	// tempory var
+	Vec operator*(const Vec& other) {
+		Vec ret(*this);
+		return ret.operator*=(other);
+	}
+	Vec operator+(const Vec& other) {
+		Vec ret(*this);
+		return ret.operator+=(other);
+	}
 };
 
 template<int width, typename T>
