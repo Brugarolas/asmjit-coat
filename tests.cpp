@@ -31,7 +31,7 @@ void assemble_sum_counter(Fn &fn){
 	auto &vr_cnt = std::get<1>(args);
 
 	coat::Value vr_sum(fn, 0, "sum");
-	coat::Value vr_idx(fn, 0UL, "idx");
+	coat::Value vr_idx(fn, size_t(0), "idx");
 	coat::loop_while(fn, vr_idx < vr_cnt, [&](){
 		vr_sum += vr_arr[vr_idx];
 		++vr_idx;
@@ -360,7 +360,7 @@ int main(int argc, char **argv){
 		func_type fnptr = fn.finalize();
 		// execute generated function
 		size_t result = fnptr(&pod_vec);
-		printf("podvec  asmjit: %lu, last element: %i\n", result, pod_vec.back());
+		printf("podvec  asmjit: %zu, last element: %i\n", result, pod_vec.back());
 
 		asmrt.rt.release(fnptr);
 

@@ -75,12 +75,15 @@ struct Struct
 
 	template<int I>
 	Ref<reg_type<std::tuple_element_t<I, typename T::types>>> get_reference(){
+		static_assert(sizeof(std::tuple_element_t<I, typename T::types>) <= 8, "data length must less than 8");
 		switch(sizeof(std::tuple_element_t<I, typename T::types>)){
-			case 1: return {cc, ::asmjit::x86:: byte_ptr(reg, offset_of_v<I, typename T::types> + offset)};
-			case 2: return {cc, ::asmjit::x86:: word_ptr(reg, offset_of_v<I, typename T::types> + offset)};
-			case 4: return {cc, ::asmjit::x86::dword_ptr(reg, offset_of_v<I, typename T::types> + offset)};
-			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, offset_of_v<I, typename T::types> + offset)};
+			case 1: return {cc, ::asmjit::x86:: byte_ptr(reg, (int32_t)(offset_of_v<I, typename T::types> + offset))};
+			case 2: return {cc, ::asmjit::x86:: word_ptr(reg, (int32_t)(offset_of_v<I, typename T::types> + offset))};
+			case 4: return {cc, ::asmjit::x86::dword_ptr(reg, (int32_t)(offset_of_v<I, typename T::types> + offset))};
+			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, (int32_t)(offset_of_v<I, typename T::types> + offset))};
 		}
+		assert(false);
+		return {cc, ::asmjit::x86:: byte_ptr(reg, (int32_t)(offset_of_v<I, typename T::types> + offset))};
 	}
 
 	template<int I>
@@ -93,7 +96,7 @@ struct Struct
 		using type = std::tuple_element_t<I, typename T::types>;
 		wrapper_type<type> ret(cc, name);
 		if constexpr(std::is_floating_point_v<type>) {
-			cc.movss(ret.reg, ::asmjit::x86::dword_ptr(reg, offset_of_v<I,typename T::types> + offset));
+			cc.movss(ret.reg, ::asmjit::x86::dword_ptr(reg, (int32_t)(offset_of_v<I,typename T::types> + offset)));
 		} else if constexpr(std::is_array_v<type>) {
 			// array decay to pointer, just add offset to struct pointer
 			//TODO: could just use struct pointer with fixed offset, no need for new register, similar to nested struct
@@ -110,10 +113,10 @@ struct Struct
 			ret = get_reference<I>();
 #else
 			switch(sizeof(type)){
-				case 1: cc.mov(ret.reg, ::asmjit::x86:: byte_ptr(reg, offset_of_v<I,typename T::types> + offset)); break;
-				case 2: cc.mov(ret.reg, ::asmjit::x86:: word_ptr(reg, offset_of_v<I,typename T::types> + offset)); break;
-				case 4: cc.mov(ret.reg, ::asmjit::x86::dword_ptr(reg, offset_of_v<I,typename T::types> + offset)); break;
-				case 8: cc.mov(ret.reg, ::asmjit::x86::qword_ptr(reg, offset_of_v<I,typename T::types> + offset)); break;
+				case 1: cc.mov(ret.reg, ::asmjit::x86:: byte_ptr(reg, (int32_t)(offset_of_v<I,typename T::types> + offset))); break;
+				case 2: cc.mov(ret.reg, ::asmjit::x86:: word_ptr(reg, (int32_t)(offset_of_v<I,typename T::types> + offset))); break;
+				case 4: cc.mov(ret.reg, ::asmjit::x86::dword_ptr(reg, (int32_t)(offset_of_v<I,typename T::types> + offset))); break;
+				case 8: cc.mov(ret.reg, ::asmjit::x86::qword_ptr(reg, (int32_t)(offset_of_v<I,typename T::types> + offset))); break;
 			}
 #endif
 #ifdef PROFILING_SOURCE

@@ -82,10 +82,10 @@ int main(){
 	// print result
 	size_t expected = vec.size();
 	if(result == expected){
-		printf("correct result: %lu\n", result);
+		printf("correct result: %zu\n", result);
 		return 0;
 	}else{
-		printf("wrong result:\nresult: %lu; expected: %lu\n", result, expected);
+		printf("wrong result:\nresult: %zu; expected: %zu\n", result, expected);
 		return -1;
 	}
 }

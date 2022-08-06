@@ -73,6 +73,8 @@ struct Ptr {
 			case 4: return {cc, ::asmjit::x86::dword_ptr(reg)};
 			case 8: return {cc, ::asmjit::x86::qword_ptr(reg)};
 		}
+		assert(false);
+		return {cc, ::asmjit::x86::byte_ptr (reg)};
 	}
 	// indexing with variable
 	mem_type operator[](const value_base_type &idx){
@@ -82,6 +84,8 @@ struct Ptr {
 			case 4: return {cc, ::asmjit::x86::dword_ptr(reg, idx.reg, clog2(sizeof(value_type)))};
 			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, idx.reg, clog2(sizeof(value_type)))};
 		}
+		assert(false);
+		return { cc, ::asmjit::x86::byte_ptr(reg, idx.reg) };
 	}
 	// indexing with constant -> use offset
 	mem_type operator[](int idx){
@@ -91,6 +95,8 @@ struct Ptr {
 			case 4: return {cc, ::asmjit::x86::dword_ptr(reg, idx*sizeof(value_type))};
 			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, idx*sizeof(value_type))};
 		}
+		assert(false);
+		return { cc, ::asmjit::x86::byte_ptr(reg, idx) };
 	}
 	// get memory operand with displacement
 	mem_type byteOffset(long offset){
@@ -100,6 +106,8 @@ struct Ptr {
 			case 4: return {cc, ::asmjit::x86::dword_ptr(reg, offset)};
 			case 8: return {cc, ::asmjit::x86::qword_ptr(reg, offset)};
 		}
+		assert(false);
+		return { cc, ::asmjit::x86::byte_ptr(reg, offset) };
 	}
 
 	Ptr operator+(const D<value_base_type> &other) const {

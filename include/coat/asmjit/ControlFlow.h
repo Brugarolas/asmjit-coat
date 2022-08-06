@@ -119,6 +119,36 @@ void loop_while(::asmjit::x86::Compiler &cc, Condition cond, Fn &&body
 	cc.bind(l_exit);
 }
 
+template<typename StepFn, typename Fn>
+void for_loop(::asmjit::x86::Compiler &cc, Condition cond, StepFn&& step, Fn &&body
+#ifdef PROFILING_SOURCE
+	, const char *file=__builtin_FILE(), int line=__builtin_LINE()
+#endif
+) {
+	::asmjit::Label l_loop = cc.newLabel();
+	::asmjit::Label l_exit = cc.newLabel();
+
+	// check if even one iteration
+#ifdef PROFILING_SOURCE
+	jump(cc, !cond, l_exit, file, line); // if not jump over
+#else
+	jump(cc, !cond, l_exit); // if not jump over
+#endif
+
+	// loop
+	cc.bind(l_loop);
+		body();
+		step();
+#ifdef PROFILING_SOURCE
+	jump(cc, cond, l_loop, file, line);
+#else
+	jump(cc, cond, l_loop);
+#endif
+
+	// label after loop body
+	cc.bind(l_exit);
+}
+
 template<typename Fn>
 void do_while(::asmjit::x86::Compiler &cc, Fn &&body, Condition cond
 #ifdef PROFILING_SOURCE
@@ -199,14 +229,16 @@ template<typename R, typename ...Args>
 std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
 FunctionCall(::asmjit::x86::Compiler &cc, R(*fnptr)(Args...), const char*, const wrapper_type<Args>&... arguments){
 	if constexpr(std::is_void_v<R>){
-		::asmjit::FuncCallNode *c = cc.call((uint64_t)(void*)fnptr, ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
+		asmjit::InvokeNode* c;
+		cc.invoke(&c, (uint64_t)(void*)fnptr, asmjit::FuncSignatureT<R, Args...>());
 		int index=0;
 		// function parameters
 		// (c->setArg(0, arguments_0), ... ; 
 		((c->setArg(index++, arguments)), ...);
 	}else{
 		reg_type<R> ret(cc, "");
-		::asmjit::FuncCallNode *c = cc.call((uint64_t)(void*)fnptr, ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
+		asmjit::InvokeNode* c;
+		cc.invoke(&c, (uint64_t)(void*)fnptr, asmjit::FuncSignatureT<R, Args...>());
 		int index=0;
 		// function parameters
 		// (c->setArg(0, arguments_0), ... ; 
@@ -222,14 +254,16 @@ template<typename R, typename ...Args>
 std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
 FunctionCall(::asmjit::x86::Compiler &cc, const Function<R(*)(Args...)> &func, const wrapper_type<Args>&... arguments){
 	if constexpr(std::is_void_v<R>){
-		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
+		asmjit::InvokeNode* c;
+		cc.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
 		int index=0;
 		// function parameters
 		// (c->setArg(0, arguments_0), ... ; 
 		((c->setArg(index++, arguments)), ...);
 	}else{
 		reg_type<R> ret(cc, "");
-		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
+		asmjit::InvokeNode* c;
+		cc.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
 		int index=0;
 		// function parameters
 		// (c->setArg(0, arguments_0), ... ; 
@@ -245,14 +279,16 @@ template<typename R, typename ...Args>
 std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
 FunctionCall(::asmjit::x86::Compiler &cc, const InternalFunction<R(*)(Args...)> &func, const wrapper_type<Args>&... arguments){
 	if constexpr(std::is_void_v<R>){
-		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
+		asmjit::InvokeNode* c;
+		cc.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
 		int index=0;
 		// function parameters
 		// (c->setArg(0, arguments_0), ... ; 
 		((c->setArg(index++, arguments)), ...);
 	}else{
 		reg_type<R> ret(cc, "");
-		::asmjit::FuncCallNode *c = cc.call(func.funcNode->label(), ::asmjit::FuncSignatureT<R,Args...>(::asmjit::CallConv::kIdHost));
+		asmjit::InvokeNode* c;
+		cc.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
 		int index=0;
 		// function parameters
 		// (c->setArg(0, arguments_0), ... ; 

@@ -14,9 +14,9 @@
 using func_type = void (*)(const uint32_t*, const uint32_t*, uint32_t*, size_t);
 
 void mean(
-	const uint32_t * __restrict__ a,
-	const uint32_t * __restrict__ b,
-	      uint32_t * __restrict__ r,
+	const uint32_t *  a,
+	const uint32_t *  b,
+	      uint32_t *  r,
 	size_t size
 ){
 	for(size_t i=0; i<size; ++i){
@@ -26,9 +26,9 @@ void mean(
 
 
 void mean_coat(
-	const uint32_t * __restrict__ a,
-	const uint32_t * __restrict__ b,
-	      uint32_t * __restrict__ r,
+	const uint32_t *  a,
+	const uint32_t *  b,
+	      uint32_t *  r,
 	size_t size
 ){
 #ifdef ENABLE_ASMJIT

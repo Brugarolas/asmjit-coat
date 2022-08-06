@@ -57,10 +57,10 @@ int main(){
 	// print result
 	uint64_t expected = calc(42);
 	if(result == expected){
-		printf("correct result: %lu\n", result);
+		printf("correct result: %zu\n", result);
 		return 0;
 	}else{
-		printf("wrong result:\nresult: %lu; expected: %lu\n", result, expected);
+		printf("wrong result:\nresult: %zu; expected: %zu\n", result, expected);
 		return -1;
 	}
 }

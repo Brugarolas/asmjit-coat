@@ -84,7 +84,7 @@ struct Condition {
 				case 2: cc.comiss(reg_xmm, std::get<::asmjit::x86::Mem>(operand)); break;
 
 				default:
-					__builtin_trap(); //FIXME: crash
+					assert(false);
 			}
 		}
 #ifdef PROFILING_SOURCE
@@ -106,10 +106,10 @@ struct Condition {
 				case ConditionFlag::ae: cc.setae(dest); break;
 
 				default:
-					__builtin_trap(); //FIXME: crash
+					assert(false);
 			}
 		} else {
-			__builtin_trap(); //FIXME: crash
+			assert(false);
 		}
 	}
 	void jump(::asmjit::Label label
@@ -131,7 +131,7 @@ struct Condition {
 				case ConditionFlag::ae: cc.jae(label); break;
 
 				default:
-					__builtin_trap(); //FIXME: crash
+					assert(false);
 			}
 		} else {
 			switch(cond) {
@@ -144,7 +144,7 @@ struct Condition {
 				case ConditionFlag::ge_f: cc.jae(label); break;
 
 				default:
-					__builtin_trap(); //FIXME: crash
+					assert(false);
 			}
 		}
 #ifdef PROFILING_SOURCE

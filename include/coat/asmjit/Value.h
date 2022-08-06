@@ -563,7 +563,7 @@ struct Value<float> final {
 			cc.vpxor(reg, reg, reg);
 			DL;
 		} else {
-			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, other);
 			cc.vmovss(reg, c0);
 			DL;
 		}
@@ -597,7 +597,7 @@ struct Value<float> final {
 		if (other == 0){
 			DL;
 		} else {
-			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, other);
 			cc.vaddss(reg, reg, c0);
 			DL;
 		}
@@ -607,7 +607,7 @@ struct Value<float> final {
 		if (other == 0){
 			DL;
 		} else {
-			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, other);
 			cc.vsubss(reg, reg, c0);
 			DL;
 		}
@@ -618,14 +618,14 @@ struct Value<float> final {
 			cc.vpxor(reg, reg, reg);
 			DL;
 		} else {
-			auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+			auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, other);
 			cc.vmulss(reg, reg, c0);
 			DL;
 		}
 		return *this;
 	}
 	Value &operator/=(const float other) {
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, other);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, other);
 		cc.vdivss(reg, reg, c0);
 		DL;
 		return *this;
@@ -656,22 +656,22 @@ struct Value<float> final {
 	Condition operator>=(const Ref<Value> &other) const { return {cc, reg, other.mem, ConditionFlag::ge_f}; }
 
 	Condition operator==(float f) const { 
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, f);
 		return {cc, reg, c0, ConditionFlag::e_f};  }
 	Condition operator!=(float f) const { 
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, f);
 		return {cc, reg, c0, ConditionFlag::ne_f}; }
 	Condition operator< (float f) const { 
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, f);
 		return {cc, reg, c0, ConditionFlag::l_f};  }
 	Condition operator<=(float f) const { 
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, f);
 		return {cc, reg, c0, ConditionFlag::le_f}; }
 	Condition operator> (float f) const { 
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, f);
 		return {cc, reg, c0, ConditionFlag::g_f};  }
 	Condition operator>=(float f) const { 
-		auto c0 = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, f);
+		auto c0 = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, f);
 		return {cc, reg, c0, ConditionFlag::ge_f}; }
 };
 

@@ -343,7 +343,12 @@ struct Vec<float, width> final {
 				cc.vpxor(reg, reg);
 		}
 	}
-	Vec(const Vec& other) : cc(other.cc), reg(other.reg) {}
+	Vec(const Vec& other) : Vec(other.cc) {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>)
+			cc.movdqu(reg, other.reg);
+		else
+			cc.vmovdqu(reg, other.reg);
+	}
 	Vec(F &cc, reg_type reg) : cc(cc), reg(reg) {}
 	inline unsigned getWidth() const { return width; }
 
@@ -357,7 +362,7 @@ struct Vec<float, width> final {
 				cc.vpxor(reg, reg, reg);
 			}
 		} else {
-			auto src = cc.newFloatConst(asmjit::ConstPool::kScopeLocal, v);
+			auto src = cc.newFloatConst(asmjit::ConstPoolScope::kLocal, v);
 			if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
 				cc.movss(reg, src);
 				cc.shufps(reg, reg, 0);
@@ -371,6 +376,14 @@ struct Vec<float, width> final {
 	}
 	// load Vec from memory, always unaligned load
 	Vec &operator=(Ref<Value<T>>&& src) { load(std::move(src)); return *this; }
+	Vec &operator=(const Vec& other) {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>)
+			cc.movdqu(reg, other.reg);
+		else
+			cc.vmovdqu(reg, other.reg);
+		return *this;
+	}
+
 	// TODO: support mask
 	void load(Ref<Value<T>>&& src, bool broadcast = false) {
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
@@ -528,15 +541,6 @@ struct Vec<float, width> final {
 	}
 	Vec& operator/=(Ref<Value<T>>&& other) {
 		return div(other);
-	}
-	// tempory var
-	Vec operator*(const Vec& other) {
-		Vec ret(*this);
-		return ret.operator*=(other);
-	}
-	Vec operator+(const Vec& other) {
-		Vec ret(*this);
-		return ret.operator+=(other);
 	}
 };
 

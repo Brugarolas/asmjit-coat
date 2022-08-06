@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <vector>
 #include <numeric>
+#include <inttypes.h>
 
 #include <coat/Function.h>
 #include <coat/ControlFlow.h>
@@ -57,7 +58,7 @@ int main(){
 	uint32_t second = *(uint32_t*)ptr;
 	ptr += sizeof(uint32_t);
 	uint8_t third = *ptr;
-	printf("first: %#lx\nsecond: %#x\nthird: %u\n", first, second, third);
+	printf("first: %" PRIx64 "\nsecond: %#x\nthird: %u\n", first, second, third);
 
 	delete[] buffer;
 

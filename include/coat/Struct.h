@@ -2,6 +2,7 @@
 #define COAT_STRUCT_H_
 
 #include <tuple>
+#include <array>
 
 namespace coat {
 

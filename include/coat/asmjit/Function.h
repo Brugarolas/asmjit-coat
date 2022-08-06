@@ -33,7 +33,7 @@ struct Function<R(*)(Args...)> {
 	::asmjit::FuncNode *funcNode;
 
 	Function(runtimeasmjit &asmrt, const char *funcName="func") : asmrt(asmrt), funcName(funcName) {
-		code.init(asmrt.rt.codeInfo());
+		code.init(asmrt.rt.environment());
 		code.setErrorHandler(&asmrt.errorHandler);
 		code.attach(&cc);
 
@@ -42,7 +42,7 @@ struct Function<R(*)(Args...)> {
 	Function(const Function &other) = delete;
 
 	void enableCodeDump(FILE *fd=stdout){
-		logger.setFlags(asmjit::FormatOptions::kFlagHexOffsets);
+		logger.setFlags(asmjit::FormatFlags::kHexOffsets);
 		logger.setFile(fd);
 		code.setLogger(&logger);
 	}
@@ -70,7 +70,7 @@ struct Function<R(*)(Args...)> {
 			[&](auto &&...args){
 				int idx=0;
 				// cc.setArg(0, tuple_at_0), cc.setArg(1, tuple_at_1), ... ;
-				((cc.setArg(idx++, args)), ...);
+				((funcNode->setArg(idx++, args)), ...);
 			},
 			ret
 		);
@@ -146,7 +146,7 @@ struct InternalFunction<R(*)(Args...)> {
 			[&](auto &&...args){
 				int idx=0;
 				// cc.setArg(0, tuple_at_0), cc.setArg(1, tuple_at_1), ... ;
-				((cc.setArg(idx++, args)), ...);
+				((funcNode->setArg(idx++, args)), ...);
 			},
 			ret
 		);
