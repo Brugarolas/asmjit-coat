@@ -20,6 +20,8 @@ struct Ref {
 	::asmjit::x86::Compiler &cc; //FIXME: pointer stored in every value type
 	::asmjit::x86::Mem mem;
 
+	// NOTE: copy the reference!
+	Ref(const Ref& other) : cc(other.cc), mem(other.mem) {}
 	Ref(::asmjit::x86::Compiler &cc, ::asmjit::x86::Mem mem) : cc(cc), mem(mem) {}
 	operator const ::asmjit::x86::Mem&() const { return mem; }
 	operator       ::asmjit::x86::Mem&()       { return mem; }

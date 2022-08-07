@@ -56,6 +56,20 @@ struct Vec final {
 			cc.vmovdqu(reg, src);
 		}
 	}
+	// load Vec from memory, always unaligned load
+	Vec &operator=(Ref<Value<T>>& src){ load(src); return *this; }
+	// load Vec from memory, always unaligned load
+	void load(Ref<Value<T>>& src){
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
+			// 128 bit SSE
+			src.mem.setSize(16); // change to xmmword
+			cc.movdqu(reg, src);
+		}else{
+			// 256 bit AVX
+			src.mem.setSize(32); // change to ymmword
+			cc.vmovdqu(reg, src);
+		}
+	}
 
 	// unaligned store
 	void store(Ref<Value<T>>&& dest) const {
@@ -340,7 +354,7 @@ struct Vec<float, width> final {
 		} else {
 			reg = cc.newZmm(name);
 			if (zero)
-				cc.vpxor(reg, reg);
+				cc.vpxor(reg, reg, reg);
 		}
 	}
 	Vec(const Vec& other) : Vec(other.cc) {
@@ -410,6 +424,33 @@ struct Vec<float, width> final {
 			}
 		}
 	}
+	Vec &operator=(Ref<Value<T>>& src) { load(src); return *this; }
+	void load(Ref<Value<T>>& src, bool broadcast = false) {
+		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>) {
+			if (broadcast) {
+				cc.movss(reg, src);
+				cc.shufps(reg, reg, 0);
+			} else {
+				src.mem.setSize(16); // change to xmmword
+				cc.movdqu(reg, src);
+			}
+		} else if constexpr(std::is_same_v<reg_type,::asmjit::x86::Ymm>) {
+			if (broadcast) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				src.mem.setSize(32); // change to ymmword
+				cc.vmovdqu(reg, src);
+			}
+		} else {
+			if (broadcast) {
+				cc.vbroadcastss(reg, src);
+			} else {
+				src.mem.setSize(64); // change to zmmword
+				cc.vmovdqu(reg, src);
+			}
+		}
+	}
+
 	// unaligned store
 	void store(Ref<Value<T>>&& dest) const {
 		if constexpr(std::is_same_v<reg_type,::asmjit::x86::Xmm>){
@@ -541,6 +582,14 @@ struct Vec<float, width> final {
 	}
 	Vec& operator/=(Ref<Value<T>>&& other) {
 		return div(other);
+	}
+	Vec& max(const Vec& other) {
+		cc.vmaxps(reg, reg, other.reg);
+		return *this;
+	}
+	Vec& min(const Vec& other) {
+		cc.vminps(reg, reg, other.reg);
+		return *this;
 	}
 };
 

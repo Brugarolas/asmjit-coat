@@ -2,6 +2,7 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
+#include <memory>
 
 #include <coat/Function.h>
 #include <coat/ControlFlow.h>
@@ -9,39 +10,127 @@
 
 #define ENABLE_DUMP 1
 
-struct BinayParam {
-	COAT_NAME("BinayParam");
+////////////////////////////////////////////////////
+// post ops setting params, interface
+enum class AlgType {
+    // Unary: x = f(x)
+    Abs,
+    // Binary: x = f(x, y), x and y are variable
+    Add,
+    Sub,
+    Mul,
+    ReLU,
+    BatchNorm,
+    // BinaryConst: x = f(x, c1, c2), x is varible and c1/c2 is const
+    Add_C,
+    Sub_C,
+    Mul_C,
+};
+
+struct UnaryParam {
+    float x1;
+    float x2;
+    float x3;
+    float x4;
+};
+
+enum class BinaryDataLayout {
+    PerTensor,
+    PerChannel,
+    PerElement
+};
+struct BinaryParam {
+    BinaryDataLayout layout;
+};
+
+struct PostOp {
+    AlgType alg_type;
+    union {
+        UnaryParam unary_param;
+        BinaryParam binary_param;
+    };
+};
+
+#define MAX_POSTOPS_NUM 10
+struct PostOps {
+    int num = 0;
+    PostOp ops[MAX_POSTOPS_NUM];
+};
+
+////////////////////////////////////////////////////
+// jit kernel param when calling kernels, private
+struct JitParam {
+	COAT_NAME("JitParam");
 	#define MEMBERS(x)    \
-		x(float*, xx)	\
-		x(float*, p)    \
-		x(int, type)
+		x(float*, right_addr)
 
 	COAT_DECLARE_PRIVATE(MEMBERS)
 	#undef MEMBERS
+    // int8_t* right_addr; // second param address
 };
+
 // array should use alias to workaround macro
-using BinayParamArr = BinayParam[2];
-struct ConvParam {
-	COAT_NAME("ConvParam");
+using JitParamArr = JitParam[MAX_POSTOPS_NUM];
+struct JitPostOps {
+	COAT_NAME("JitPostOps");
 	#define MEMBERS(x)    \
-		x(float, tt)	  \
-		x(float*, src)    \
-		x(float*, weight) \
-		x(float*, dst)    \
-		x(int, size)   \
-		x(BinayParamArr, bin) \
-        x(float*, buf)
+		x(JitParamArr, params)
 
 	COAT_DECLARE_PRIVATE(MEMBERS)
-	#undef MEMBERS
+	#undef MEMBERS    
+    // JitParam params[MAX_POSTOPS_NUM];
 };
+
+////////////////////////////////////////////////////
+// generate jit kernel needed param when injecting kernels, private
+struct JitInjectPostOp {
+    BinaryDataLayout layout;
+    std::vector<coat::Ref<coat::Value<float>>> right_addrs;
+};
+
+struct JitInjectPostOps {
+    JitInjectPostOp params[MAX_POSTOPS_NUM];
+};
+
+template <unsigned width>
+void inject_postops(asmjit::x86::Compiler &cc, std::vector<coat::Vec<float, width>*> vecs, PostOps* ops_param, JitInjectPostOps* inject_ops_param) {
+    for (auto i = 0; i < ops_param->num; i++) {
+        switch (ops_param->ops[i].alg_type) {
+        case AlgType::Abs: {
+            coat::Vec<float, width> tmp(cc);
+            std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
+                tmp = -0.f;
+                tmp -= *vec;
+                vec->max(tmp);
+            });
+            break;
+        }
+        case AlgType::Add: {
+            if (inject_ops_param->params[i].layout == BinaryDataLayout::PerTensor) {
+                coat::Vec<float, width> tmp(cc);
+                tmp.load(inject_ops_param->params[i].right_addrs[0], true);
+                std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
+                    *vec += tmp;
+                });
+            } else if (inject_ops_param->params[i].layout == BinaryDataLayout::PerChannel) {
+                coat::Vec<float, width> tmp(cc);
+                for (size_t j = 0; j < vecs.size(); j++) {
+                    // TODO
+                    auto addr = inject_ops_param->params[i].right_addrs[j];
+                    tmp.load(addr);
+                    *vecs[j] += tmp;
+                }
+            }
+        }
+    }
+    }
+}
 
 // size should be runtime const
 template<int vectorsize>
 void jit_memset0(asmjit::x86::Compiler &cc, coat::Ptr<coat::Value<int8_t>> p, int size) {
     int offset = 0;
     int tail = size % (vectorsize * sizeof(float));
-    //auto p = ptr.cast<float>();
     if (size > vectorsize * (int)sizeof(float)) {
         coat::Vec<float, vectorsize> zero(cc, true, "zero");
         const int size_4 = size / vectorsize / sizeof(float) / 4 * 4 * sizeof(float) * vectorsize;
@@ -137,7 +226,7 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
     int i, j, p;
     for (i = 0; i < M; i++) {
         for (j = 0; j < N; j++) {
-            C(i, j) = 0;
+            C(i, j) = j; // post ops, per-channel
             for (p = 0; p < K; p++) {
                 C(i, j) += A(i, p) * B(p, j);
             }
@@ -147,9 +236,9 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
 
 coat::runtimeasmjit asmrt;
 //using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
-using func_t = void (*)(float* a, float* b, float* c);
+using func_t = void (*)(float* a, float* b, float* c, JitPostOps* param);
 template <unsigned width>
-func_t makeMatmul(int M, int N, int K, int lda, int ldb, int ldc) {
+func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post_ops_param) {
 	// initialize backend, AsmJit in this case
 	// context object representing the generated function
 	auto fn = asmrt.createFunction<func_t>();
@@ -161,13 +250,40 @@ func_t makeMatmul(int M, int N, int K, int lda, int ldb, int ldc) {
 	fn.enableCodeDump();
 #endif
 	{
-		auto [a, b, c] = fn.getArguments("a", "b", "c");
-        jit_memset0<width>(fn.cc, c.cast<int8_t>(), M * N * sizeof(float));
+		auto [a, b, c, jit_post_ops_param] = fn.getArguments("a", "b", "c", "ops");
+        jit_memset0<width>(fn.cc, c.cast<int8_t>(), M * N * (int)sizeof(float));
         coat::Vec<float, width> regCi0(fn.cc), regCi1(fn.cc);
         coat::Vec<float, width> regA0i0(fn.cc), regA0i1(fn.cc), regB0(fn.cc);
         coat::Vec<float, width> regA1i0(fn.cc), regA1i1(fn.cc), regB1(fn.cc);
         coat::Vec<float, width> regA2i0(fn.cc), regA2i1(fn.cc), regB2(fn.cc);
         coat::Vec<float, width> regA3i0(fn.cc), regA3i1(fn.cc), regB3(fn.cc);
+        JitInjectPostOps inject_postops_param;
+        using share_p = std::shared_ptr<coat::Ptr<coat::Value<float>>>;
+        std::vector<share_p> post_ops_addrs;
+        for (auto i = 0; i < post_ops_param->num; i++) {
+            if (post_ops_param->ops[i].alg_type >= AlgType::Add) {
+                auto params = jit_post_ops_param.get_value<JitPostOps::member_params>("params");
+                auto addr = params[i].get_value<JitParam::member_right_addr>("addr");
+                // TODO: ptr has no 'operator= addr'
+                auto op = std::make_shared<share_p::element_type>(fn.cc, addr);
+                post_ops_addrs.push_back(op);
+            } else {
+                auto op = std::make_shared<share_p::element_type>(fn.cc);
+                post_ops_addrs.push_back(op);
+            }
+        }
+
+        auto prepare_inject_param = [&] (const coat::Value<int>& n, int vec_num) {
+            for (auto i = 0; i < post_ops_param->num; i++) {
+                if (post_ops_param->ops[i].alg_type >= AlgType::Add && post_ops_param->ops[i].binary_param.layout != BinaryDataLayout::PerTensor) {
+                    auto& ptr = *post_ops_addrs[i];
+                    inject_postops_param.params[i].right_addrs.clear();
+                    inject_postops_param.params[i].layout = post_ops_param->ops[i].binary_param.layout;
+                    for (int j = 0; j < vec_num; j++)
+                        inject_postops_param.params[i].right_addrs.push_back(ptr.index(n, width * 0 * sizeof(float)));
+                }
+            }
+        };
 
         coat::Value i(fn.cc, int(0), "i");
         auto m_a = a;
@@ -260,6 +376,27 @@ func_t makeMatmul(int M, int N, int K, int lda, int ldb, int ldc) {
                 }
             }
         }*/
+
+        // inject binary postops
+        m_c = c;
+        i = 0;
+        //for (i = 0; i < params_c.m / 4 * 4; i += 4) {
+        coat::for_loop(fn.cc, i < M, [&] {
+                i += 2;
+                m_c += 2 * ldc / sizeof(float);
+            },
+            [&] {
+            coat::Value<int> j(fn.cc, int(0), "j");
+            //for (j = 0; j < params_c.n; j += width) { // TODO: handle tail
+            coat::for_loop(fn.cc, j < N, [&] { j += width; }, [&] {
+                regCi0.load(m_c.index(j, 0));
+                regCi1.load(m_c.index(j, 1 * ldc));
+                prepare_inject_param(j, 2);
+                inject_postops<width>(fn.cc, { &regCi0, &regCi1 }, post_ops_param, &inject_postops_param);
+                regCi0.store(m_c.index(j, 0));
+                regCi1.store(m_c.index(j, 1 * ldc));
+            });
+        });
 		// specify return value
 		coat::ret(fn);
 	}
@@ -383,10 +520,21 @@ void matmulT(Arch*, const MatmulConstParam params_c, const MatmulMutableParam& p
 
 void test_matmul() {
     int M, N, K;
-    M = N = K = 64;
+    M = N = K = 640;
+    // postops, perchannel
+    std::vector<float> d(N, 0);
+	std::iota(d.begin(), d.end(), 0.0f);
+
     std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
-    auto f = makeMatmul<8>(M, N, K, M * 4, N * 4, M * 4);
-    f(a.data(), b.data(), c.data());
+    PostOps post_ops;
+    post_ops.num = 2;
+    post_ops.ops[0].alg_type = AlgType::Abs;
+    post_ops.ops[1].alg_type = AlgType::Add;
+    post_ops.ops[1].binary_param.layout = BinaryDataLayout::PerChannel;
+    auto f = make_matmul<8>(M, N, K, M * 4, N * 4, M * 4, &post_ops);
+    JitPostOps ops;
+    ops.params[1].right_addr = d.data();
+    f(a.data(), b.data(), c.data(), &ops);
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, M, N, M);
     if(c == c_ref) {
 		printf("correct \n");
