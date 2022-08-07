@@ -68,10 +68,8 @@ void test_struct() {
     std::vector<float> expected(16);
     using func_t = void (*)(ConvParam*);
 
-    // initialize backend, AsmJit in this case
-    coat::runtimeasmjit asmrt;
     // context object representing the generated function
-    auto fn = asmrt.createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>();
 #if ENABLE_DUMP
     fn.enableCodeDump();
 #endif

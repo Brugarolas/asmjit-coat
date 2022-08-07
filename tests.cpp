@@ -118,13 +118,6 @@ int main(int argc, char **argv){
 
 
     // init JIT backends
-#ifdef ENABLE_ASMJIT
-    coat::runtimeasmjit asmrt;
-#endif
-#ifdef ENABLE_LLVMJIT
-    coat::runtimellvmjit::initTarget();
-    coat::runtimellvmjit llvmrt;
-#endif
 
 #ifdef ENABLE_ASMJIT
     {
@@ -132,7 +125,7 @@ int main(int argc, char **argv){
         // old way
         //coat::Function<coat::runtimeasmjit,func_type> fn(asmrt, "value_creation");
         // using factory, preferred way
-        auto fn = asmrt.createFunction<func_type>("value_creation");
+        auto fn = coat::createFunction<func_type>("value_creation");
         // calling coat::Value ctor
         coat::Value<int> vr_val("val");
         vr_val = 0;
@@ -150,7 +143,7 @@ int main(int argc, char **argv){
         int result = fnptr();
         printf("initialization test:  asmjit; result: %i\n", result);
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
     }
 #endif
 #ifdef ENABLE_LLVMJIT
@@ -180,7 +173,7 @@ int main(int argc, char **argv){
 #ifdef ENABLE_ASMJIT
     {
         using func_type = int (*)(const int*,size_t);
-        auto fn = asmrt.createFunction<func_type>("sum_foreach");
+        auto fn = coat::createFunction<func_type>("sum_foreach");
         assemble_sum_foreach(fn);
 
         // finalize function
@@ -189,7 +182,7 @@ int main(int argc, char **argv){
         int result = fnptr(array, cnt);
         printf("result with for_each and  asmjit: %i\n", result);
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
     }
 #endif
 #ifdef ENABLE_LLVMJIT
@@ -210,7 +203,7 @@ int main(int argc, char **argv){
 #ifdef ENABLE_ASMJIT
     {
         using func_type = int (*)(const int*,size_t);
-        auto fn = asmrt.createFunction<func_type>("sum_counter");
+        auto fn = coat::createFunction<func_type>("sum_counter");
         assemble_sum_counter(fn);
 
         // finalize function
@@ -219,7 +212,7 @@ int main(int argc, char **argv){
         int result = fnptr(array, cnt);
         printf("result with loop_while and  asmjit: %i\n", result);
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
     }
 #endif
 #ifdef ENABLE_LLVMJIT
@@ -240,7 +233,7 @@ int main(int argc, char **argv){
 #ifdef ENABLE_ASMJIT
     {
         using func_type = int (*)(const int*,size_t);
-        auto fn = asmrt.createFunction<func_type>("condsum_loop");
+        auto fn = coat::createFunction<func_type>("condsum_loop");
         assemble_condsum_loop(fn);
 
         // finalize function
@@ -249,7 +242,7 @@ int main(int argc, char **argv){
         int result = fnptr(array, cnt);
         printf("result with loop_while and  asmjit: %i\n", result);
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
     }
 #endif
 #ifdef ENABLE_LLVMJIT
@@ -271,7 +264,7 @@ int main(int argc, char **argv){
 #ifdef ENABLE_ASMJIT
     {
         using func_type = uint32_t (*)(triple*);
-        auto fn = asmrt.createFunction<func_type>("getStructElement");
+        auto fn = coat::createFunction<func_type>("getStructElement");
         assemble_getStructElement(fn);
 
         // finalize function
@@ -280,7 +273,7 @@ int main(int argc, char **argv){
         int result = fnptr(&t);
         printf("getStructElement  asmjit: %i\n", result);
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
     }
 #endif
 #ifdef ENABLE_LLVMJIT
@@ -308,7 +301,7 @@ int main(int argc, char **argv){
 #ifdef ENABLE_ASMJIT
     {
         using func_type = int (*)(wrapped_vector<int>*);
-        auto fn = asmrt.createFunction<func_type>("vectorsum");
+        auto fn = coat::createFunction<func_type>("vectorsum");
         assemble_vectorsum(fn);
 
         // finalize function
@@ -317,7 +310,7 @@ int main(int argc, char **argv){
         int result = fnptr((wrapped_vector<int>*)&vec);
         printf("vectorsum  asmjit: %i\n", result);
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
     }
 #endif
 #ifdef ENABLE_LLVMJIT
@@ -343,7 +336,7 @@ int main(int argc, char **argv){
 #ifdef ENABLE_ASMJIT
     {
         using func_type = size_t (*)(pod_vector<int>*);
-        auto fn = asmrt.createFunction<func_type>("sum_podvec");
+        auto fn = coat::createFunction<func_type>("sum_podvec");
         auto args = fn.getArguments("podvec");
         auto &vr_podvec = std::get<0>(args);
         auto vr_size = vr_podvec.size();
@@ -362,7 +355,7 @@ int main(int argc, char **argv){
         size_t result = fnptr(&pod_vec);
         printf("podvec  asmjit: %zu, last element: %i\n", result, pod_vec.back());
 
-        asmrt.rt.release(fnptr);
+        coat::getJitRuntimeEnv().release_func(fnptr);
 
         printf("current elements: ");
         for(const auto &ele : pod_vec){

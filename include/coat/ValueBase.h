@@ -1,26 +1,22 @@
-#ifndef COAT_ASMJIT_VALUEBASE_H_
-#define COAT_ASMJIT_VALUEBASE_H_
+#pragma once
 
 #include "Global.h"
-
-//#include "Condition.h"
-
 
 namespace coat {
 
 struct ValueBase {
-    ::asmjit::x86::Gp reg;
+    asmjit::x86::Gp reg;
 
     ValueBase() {}
     ValueBase(asmjit::x86::Gp reg) : reg(reg) {}
     //ValueBase(const ValueBase &other) : reg(other.reg) {}
     ValueBase(const ValueBase &&other) : reg(other.reg) {}
 
-    operator const ::asmjit::x86::Gp&() const { return reg; }
-    operator       ::asmjit::x86::Gp&()       { return reg; }
+    operator const asmjit::x86::Gp&() const { return reg; }
+    operator       asmjit::x86::Gp&()       { return reg; }
 
 #if 0
-    ValueBase &operator=(const Condition<::asmjit::x86::Compiler> &cond){
+    ValueBase &operator=(const Condition<asmjit::x86::Compiler> &cond){
         cond.compare();
         cond.setbyte(reg);
         return *this;
@@ -49,5 +45,3 @@ inline ValueBase &operator--(const D<ValueBase> &other){
 }
 
 } // namespace
-
-#endif

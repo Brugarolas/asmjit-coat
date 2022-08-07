@@ -234,14 +234,13 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
     }
 }
 
-coat::runtimeasmjit asmrt;
 //using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
 using func_t = void (*)(float* a, float* b, float* c, JitPostOps* param);
 template <unsigned width>
 func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post_ops_param) {
     // initialize backend, AsmJit in this case
     // context object representing the generated function
-    auto fn = asmrt.createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>();
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
     else if  constexpr (width == 8)
@@ -541,6 +540,7 @@ void test_matmul() {
     } else {
         printf("wrong result\n");
     }
+    coat::getJitRuntimeEnv().release_func(f);
 }
 int main(){
     test_matmul();

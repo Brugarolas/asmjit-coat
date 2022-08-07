@@ -16,9 +16,8 @@ int main(){
 
 #ifdef ENABLE_ASMJIT
     // initialize backend, AsmJit in this case
-    coat::runtimeasmjit asmrt;
     // context object representing the generated function
-    auto fn = asmrt.createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>();
 #elif defined(ENABLE_LLVMJIT)
     // initialize LLVM backend
     coat::runtimellvmjit::initTarget();

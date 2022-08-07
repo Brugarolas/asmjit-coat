@@ -91,14 +91,6 @@ int main(int argc, char *argv[]){
     uint32_t index = atoi(argv[1]);
     uint32_t expected = fib(index);
 
-    // init JIT backends
-#ifdef ENABLE_ASMJIT
-    coat::runtimeasmjit asmrt;
-#endif
-#ifdef ENABLE_LLVMJIT
-    coat::runtimellvmjit::initTarget();
-    coat::runtimellvmjit llvmrt;
-#endif
 
     // signature of the generated function
     using func_t = uint32_t (*)(uint32_t index);
@@ -106,7 +98,7 @@ int main(int argc, char *argv[]){
 #ifdef ENABLE_ASMJIT
     {
         // context object representing the generated function
-        coat::Function<func_t> fn(asmrt);
+        coat::Function<func_t> fn;
         assemble_selfcall(fn);
         // finalize code generation and get function pointer to the generated function
         func_t foo = fn.finalize();
@@ -131,11 +123,11 @@ int main(int argc, char *argv[]){
 
 #ifdef ENABLE_ASMJIT
     {
-        coat::Function<func_t> fnrec(asmrt);
+        coat::Function<func_t> fnrec;
         assemble_selfcall(fnrec);
         func_t foorec = fnrec.finalize();
 
-        coat::Function<func_t> fn(asmrt);
+        coat::Function<func_t> fn;
         assemble_crosscall(fn, foorec, "");
         func_t foo = fn.finalize();
         // execute the generated function
@@ -163,7 +155,7 @@ int main(int argc, char *argv[]){
 #ifdef ENABLE_ASMJIT
     {
         // context object representing the generated function
-        coat::Function<func_t> fn(asmrt);
+        coat::Function<func_t> fn;
         assemble_allinone(fn);
         // finalize code generation and get function pointer to the generated function
         func_t foo = fn.finalize();

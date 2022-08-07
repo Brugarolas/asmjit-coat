@@ -20,10 +20,8 @@ void test_compute(compute_type type) {
     float expected;
     using func_t = float (*)(float *data, uint64_t size);
 
-    // initialize backend, AsmJit in this case
-    coat::runtimeasmjit asmrt;
     // context object representing the generated function
-    auto fn = asmrt.createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>();
 #if ENABLE_DUMP
     fn.enableCodeDump();
 #endif
@@ -91,10 +89,8 @@ void test_cond(cond_type type) {
     float expected;
     using func_t = float (*)(float data);
 
-    // initialize backend, AsmJit in this case
-    coat::runtimeasmjit asmrt;
     // context object representing the generated function
-    auto fn = asmrt.createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>();
 #if ENABLE_DUMP
     fn.enableCodeDump();
 #endif

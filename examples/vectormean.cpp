@@ -32,10 +32,8 @@ void mean_coat(
     size_t size
 ){
 #ifdef ENABLE_ASMJIT
-    // init
-    coat::runtimeasmjit asmrt;
     // context object
-    auto fn = asmrt.createFunction<func_type>("gen_asmjit");
+    auto fn = coat::createFunction<func_type>("gen_asmjit");
     fn.enableCodeDump();
 #elif defined(ENABLE_LLVMJIT)
     // init
