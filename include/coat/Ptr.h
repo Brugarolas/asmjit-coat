@@ -1,6 +1,8 @@
 #ifndef COAT_PTR_H_
 #define COAT_PTR_H_
 
+#include "Global.h"
+
 namespace coat {
 
 template<typename T>

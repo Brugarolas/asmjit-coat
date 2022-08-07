@@ -1,6 +1,8 @@
 #ifndef COAT_VALUE_H_
 #define COAT_VALUE_H_
 
+#include "Global.h"
+
 namespace coat {
 
 struct ValueBase;

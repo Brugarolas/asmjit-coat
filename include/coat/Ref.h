@@ -1,6 +1,7 @@
 #ifndef COAT_REF_H_
 #define COAT_REF_H_
 
+#include "Global.h"
 
 namespace coat {
 

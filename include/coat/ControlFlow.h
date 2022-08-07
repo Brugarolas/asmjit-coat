@@ -1,6 +1,7 @@
 #ifndef COAT_CONTROLFLOW_H_
 #define COAT_CONTROLFLOW_H_
 
+#include "Global.h"
 
 #ifdef ENABLE_ASMJIT
 #  include "asmjit/ControlFlow.h"

@@ -1,6 +1,7 @@
 #ifndef COAT_FUNCTION_H_
 #define COAT_FUNCTION_H_
 
+#include "Global.h"
 #include <type_traits>
 
 
@@ -13,16 +14,16 @@ template<typename T> struct Struct;
 
 template<typename T>
 using reg_type = std::conditional_t<std::is_pointer_v<T>,
-						Ptr<Value<std::remove_cv_t<std::remove_pointer_t<T>>>>,
-						Value<std::remove_cv_t<T>>
-				>;
+                        Ptr<Value<std::remove_cv_t<std::remove_pointer_t<T>>>>,
+                        Value<std::remove_cv_t<T>>
+                >;
 
 // decay - converts array types to pointer types
 template<typename T>
 using wrapper_type = std::conditional_t<std::is_arithmetic_v<std::remove_pointer_t<std::decay_t<T>>>,
-						reg_type<std::decay_t<T>>,
-						Struct<std::remove_extent_t<std::remove_cv_t<std::remove_pointer_t<T>>>>
-					>;
+                        reg_type<std::decay_t<T>>,
+                        Struct<std::remove_extent_t<std::remove_cv_t<std::remove_pointer_t<T>>>>
+                    >;
 
 template<typename T>
 struct Function;

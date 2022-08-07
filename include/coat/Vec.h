@@ -1,7 +1,7 @@
 #ifndef COAT_VECTOR_H_
 #define COAT_VECTOR_H_
 
-#include <asmjit/asmjit.h>
+#include "Global.h"
 
 namespace coat {
 

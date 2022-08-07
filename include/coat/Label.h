@@ -1,6 +1,8 @@
 #ifndef COAT_LABEL_H_
 #define COAT_LABEL_H_
 
+#include "Global.h"
+
 namespace coat {
 
 struct Label;

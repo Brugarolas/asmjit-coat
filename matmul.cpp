@@ -60,24 +60,24 @@ struct PostOps {
 ////////////////////////////////////////////////////
 // jit kernel param when calling kernels, private
 struct JitParam {
-	COAT_NAME("JitParam");
-	#define MEMBERS(x)    \
-		x(float*, right_addr)
+    COAT_NAME("JitParam");
+    #define MEMBERS(x)    \
+        x(float*, right_addr)
 
-	COAT_DECLARE_PRIVATE(MEMBERS)
-	#undef MEMBERS
+    COAT_DECLARE_PRIVATE(MEMBERS)
+    #undef MEMBERS
     // int8_t* right_addr; // second param address
 };
 
 // array should use alias to workaround macro
 using JitParamArr = JitParam[MAX_POSTOPS_NUM];
 struct JitPostOps {
-	COAT_NAME("JitPostOps");
-	#define MEMBERS(x)    \
-		x(JitParamArr, params)
+    COAT_NAME("JitPostOps");
+    #define MEMBERS(x)    \
+        x(JitParamArr, params)
 
-	COAT_DECLARE_PRIVATE(MEMBERS)
-	#undef MEMBERS    
+    COAT_DECLARE_PRIVATE(MEMBERS)
+    #undef MEMBERS    
     // JitParam params[MAX_POSTOPS_NUM];
 };
 
@@ -93,11 +93,11 @@ struct JitInjectPostOps {
 };
 
 template <unsigned width>
-void inject_postops(asmjit::x86::Compiler &cc, std::vector<coat::Vec<float, width>*> vecs, PostOps* ops_param, JitInjectPostOps* inject_ops_param) {
+void inject_postops(std::vector<coat::Vec<float, width>*> vecs, PostOps* ops_param, JitInjectPostOps* inject_ops_param) {
     for (auto i = 0; i < ops_param->num; i++) {
         switch (ops_param->ops[i].alg_type) {
         case AlgType::Abs: {
-            coat::Vec<float, width> tmp(cc);
+            coat::Vec<float, width> tmp;
             std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
                 tmp = -0.f;
                 tmp -= *vec;
@@ -107,13 +107,13 @@ void inject_postops(asmjit::x86::Compiler &cc, std::vector<coat::Vec<float, widt
         }
         case AlgType::Add: {
             if (inject_ops_param->params[i].layout == BinaryDataLayout::PerTensor) {
-                coat::Vec<float, width> tmp(cc);
+                coat::Vec<float, width> tmp;
                 tmp.load(inject_ops_param->params[i].right_addrs[0], true);
                 std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
                     *vec += tmp;
                 });
             } else if (inject_ops_param->params[i].layout == BinaryDataLayout::PerChannel) {
-                coat::Vec<float, width> tmp(cc);
+                coat::Vec<float, width> tmp;
                 for (size_t j = 0; j < vecs.size(); j++) {
                     // TODO
                     auto addr = inject_ops_param->params[i].right_addrs[j];
@@ -128,15 +128,15 @@ void inject_postops(asmjit::x86::Compiler &cc, std::vector<coat::Vec<float, widt
 
 // size should be runtime const
 template<int vectorsize>
-void jit_memset0(asmjit::x86::Compiler &cc, coat::Ptr<coat::Value<int8_t>> p, int size) {
+void jit_memset0(coat::Ptr<coat::Value<int8_t>> p, int size) {
     int offset = 0;
     int tail = size % (vectorsize * sizeof(float));
     if (size > vectorsize * (int)sizeof(float)) {
-        coat::Vec<float, vectorsize> zero(cc, true, "zero");
+        coat::Vec<float, vectorsize> zero(true, "zero");
         const int size_4 = size / vectorsize / sizeof(float) / 4 * 4 * sizeof(float) * vectorsize;
         if (size_4 > 2 * 4 * (int)sizeof(float) * vectorsize) {
-            coat::Value pos(cc, int(0), "pos");
-            coat::loop_while(cc, pos < size_4, [&] {
+            coat::Value pos(int(0), "pos");
+            coat::loop_while(pos < size_4, [&] {
                 // p[pos + 1 * vectorsize * sizeof(float)]
                 zero.store(p.index(pos, 0 * vectorsize * sizeof(float)));
                 zero.store(p.index(pos, 1 * vectorsize * sizeof(float)));
@@ -151,43 +151,43 @@ void jit_memset0(asmjit::x86::Compiler &cc, coat::Ptr<coat::Value<int8_t>> p, in
         }
         if constexpr(vectorsize >= 16) {
             if (tail >= 8 * (int)sizeof(float)) {
-                coat::Vec<float, 8> zero_y(zero.cc, zero.reg.half());
+                coat::Vec<float, 8> zero_y(zero.reg.half());
                 zero_y.store(p[offset]);
                 offset += 8 * sizeof(float);
                 tail -= 8 * sizeof(float);
             }
             if (tail >= 4 * (int)sizeof(float)) {
-                coat::Vec<float, 4> zero_y(zero.cc, zero.reg.half().half());
+                coat::Vec<float, 4> zero_y(zero.reg.half().half());
                 zero_y.store(p[offset]);
                 offset += 4 * sizeof(float);
                 tail -= 4 * sizeof(float);
             }
         } else if constexpr(vectorsize >= 8) {
             if (tail >= 4 * (int)sizeof(float)) {
-                coat::Vec<float, 4> zero_y(zero.cc, zero.reg.half());
+                coat::Vec<float, 4> zero_y(zero.reg.half());
                 zero_y.store(p[offset]);
                 offset += 4 * sizeof(float);
                 tail -= 4 * sizeof(float);
             }
         }
     } else if (tail >= 4 * (int)sizeof(float)) {
-        coat::Vec<float, vectorsize> zero(cc, 0, "zero");
+        coat::Vec<float, vectorsize> zero(0, "zero");
         if constexpr(vectorsize >= 16) {
             if (tail >= 8 * (int)sizeof(float)) {
-                coat::Vec<float, 8> zero_y(zero.cc, zero.reg.half());
+                coat::Vec<float, 8> zero_y(zero.reg.half());
                 zero_y.store(p[offset]);
                 offset += 8 * sizeof(float);
                 tail -= 8 * sizeof(float);
             }
             if (tail >= 4 * (int)sizeof(float)) {
-                coat::Vec<float, 4> zero_y(zero.cc, zero.reg.half().half());
+                coat::Vec<float, 4> zero_y(zero.reg.half().half());
                 zero_y.store(p[offset]);
                 offset += 4 * sizeof(float);
                 tail -= 4 * sizeof(float);
             }
         } else if constexpr(vectorsize >= 8) {
             if (tail >= 4 * (int)sizeof(float)) {
-                coat::Vec<float, 4> zero_y(zero.cc, zero.reg.half());
+                coat::Vec<float, 4> zero_y(zero.reg.half());
                 zero_y.store(p[offset]);
                 offset += 4 * sizeof(float);
                 tail -= 4 * sizeof(float);
@@ -195,7 +195,7 @@ void jit_memset0(asmjit::x86::Compiler &cc, coat::Ptr<coat::Value<int8_t>> p, in
         }
     }
     if (tail) {
-        coat::Value<int64_t> zero(cc);
+        coat::Value<int64_t> zero;
         zero = 0;
         if (tail >= 8) {
             p.cast<int64_t>()[offset / 8] = zero;
@@ -203,17 +203,17 @@ void jit_memset0(asmjit::x86::Compiler &cc, coat::Ptr<coat::Value<int8_t>> p, in
             tail -= 8;
         }
         if (tail >= 4) {
-            p.cast<int32_t>()[offset / 4] = coat::Value<int32_t>(zero.cc, zero.reg.r32());
+            p.cast<int32_t>()[offset / 4] = coat::Value<int32_t>(zero.reg.r32());
             offset += 4;
             tail -= 4;
         }
         if (tail >= 2) {
-            p.cast<int16_t>()[offset / 2] = coat::Value<int16_t>(zero.cc, zero.reg.r16());
+            p.cast<int16_t>()[offset / 2] = coat::Value<int16_t>(zero.reg.r16());
             offset += 2;
             tail -= 2;
         }
         if (tail >= 1) {
-            p.cast<int8_t>()[offset] = coat::Value<int8_t>(zero.cc, zero.reg.r8());
+            p.cast<int8_t>()[offset] = coat::Value<int8_t>(zero.reg.r8());
         }
     }
 }
@@ -239,24 +239,24 @@ coat::runtimeasmjit asmrt;
 using func_t = void (*)(float* a, float* b, float* c, JitPostOps* param);
 template <unsigned width>
 func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post_ops_param) {
-	// initialize backend, AsmJit in this case
-	// context object representing the generated function
-	auto fn = asmrt.createFunction<func_t>();
+    // initialize backend, AsmJit in this case
+    // context object representing the generated function
+    auto fn = asmrt.createFunction<func_t>();
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
     else if  constexpr (width == 8)
         fn.funcNode->frame().setAvxEnabled();
 #if ENABLE_DUMP
-	fn.enableCodeDump();
+    fn.enableCodeDump();
 #endif
-	{
-		auto [a, b, c, jit_post_ops_param] = fn.getArguments("a", "b", "c", "ops");
-        jit_memset0<width>(fn.cc, c.cast<int8_t>(), M * N * (int)sizeof(float));
-        coat::Vec<float, width> regCi0(fn.cc), regCi1(fn.cc);
-        coat::Vec<float, width> regA0i0(fn.cc), regA0i1(fn.cc), regB0(fn.cc);
-        coat::Vec<float, width> regA1i0(fn.cc), regA1i1(fn.cc), regB1(fn.cc);
-        coat::Vec<float, width> regA2i0(fn.cc), regA2i1(fn.cc), regB2(fn.cc);
-        coat::Vec<float, width> regA3i0(fn.cc), regA3i1(fn.cc), regB3(fn.cc);
+    {
+        auto [a, b, c, jit_post_ops_param] = fn.getArguments("a", "b", "c", "ops");
+        jit_memset0<width>(c.cast<int8_t>(), M * N * (int)sizeof(float));
+        coat::Vec<float, width> regCi0, regCi1;
+        coat::Vec<float, width> regA0i0, regA0i1, regB0;
+        coat::Vec<float, width> regA1i0, regA1i1, regB1;
+        coat::Vec<float, width> regA2i0, regA2i1, regB2;
+        coat::Vec<float, width> regA3i0, regA3i1, regB3;
         JitInjectPostOps inject_postops_param;
         using share_p = std::shared_ptr<coat::Ptr<coat::Value<float>>>;
         std::vector<share_p> post_ops_addrs;
@@ -265,10 +265,10 @@ func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post
                 auto params = jit_post_ops_param.get_value<JitPostOps::member_params>("params");
                 auto addr = params[i].get_value<JitParam::member_right_addr>("addr");
                 // TODO: ptr has no 'operator= addr'
-                auto op = std::make_shared<share_p::element_type>(fn.cc, addr);
+                auto op = std::make_shared<share_p::element_type>(addr);
                 post_ops_addrs.push_back(op);
             } else {
-                auto op = std::make_shared<share_p::element_type>(fn.cc);
+                auto op = std::make_shared<share_p::element_type>();
                 post_ops_addrs.push_back(op);
             }
         }
@@ -285,21 +285,21 @@ func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post
             }
         };
 
-        coat::Value i(fn.cc, int(0), "i");
+        coat::Value i(int(0), "i");
         auto m_a = a;
         auto m_c = c;
         //for (i = 0; i < params_c.m / 4 * 4; i += 4) {
-        coat::for_loop(fn.cc, i < M, [&] {
+        coat::for_loop(i < M, [&] {
                 i += 2;
                 m_a += 2 * lda / sizeof(float);
                 m_c += 2 * ldc / sizeof(float);
             },
             [&] {
-            coat::Value<int> p(fn.cc, int(0), "p");
+            coat::Value<int> p(int(0), "p");
             auto m_b = b;
             auto p_a = m_a;
             //for (p = 0; p < params_c.k; p += 4) { // TODO: handle tail
-            coat::for_loop(fn.cc, p < K,
+            coat::for_loop(p < K,
                 [&] {
                         p += 4;
                         m_b += 4 * ldb / sizeof(float);
@@ -314,9 +314,9 @@ func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post
                 regA1i1.load(p_a[1 + 1 * lda / sizeof(float)], true);
                 regA2i1.load(p_a[2 + 1 * lda / sizeof(float)], true);
                 regA3i1.load(p_a[3 + 1 * lda / sizeof(float)], true);
-                coat::Value<int> j(fn.cc, int(0), "j");
+                coat::Value<int> j(int(0), "j");
                 //for (j = 0; j < params_c.n; j += width) { // TODO: handle tail
-                coat::for_loop(fn.cc, j < N, [&] { j += width; }, [&] {
+                coat::for_loop(j < N, [&] { j += width; }, [&] {
                     regCi0.load(m_c.index(j, 0));
                     regCi1.load(m_c.index(j, 1 * ldc));
 
@@ -381,28 +381,28 @@ func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post
         m_c = c;
         i = 0;
         //for (i = 0; i < params_c.m / 4 * 4; i += 4) {
-        coat::for_loop(fn.cc, i < M, [&] {
+        coat::for_loop(i < M, [&] {
                 i += 2;
                 m_c += 2 * ldc / sizeof(float);
             },
             [&] {
-            coat::Value<int> j(fn.cc, int(0), "j");
+            coat::Value<int> j(int(0), "j");
             //for (j = 0; j < params_c.n; j += width) { // TODO: handle tail
-            coat::for_loop(fn.cc, j < N, [&] { j += width; }, [&] {
+            coat::for_loop(j < N, [&] { j += width; }, [&] {
                 regCi0.load(m_c.index(j, 0));
                 regCi1.load(m_c.index(j, 1 * ldc));
                 prepare_inject_param(j, 2);
-                inject_postops<width>(fn.cc, { &regCi0, &regCi1 }, post_ops_param, &inject_postops_param);
+                inject_postops<width>({ &regCi0, &regCi1 }, post_ops_param, &inject_postops_param);
                 regCi0.store(m_c.index(j, 0));
                 regCi1.store(m_c.index(j, 1 * ldc));
             });
         });
-		// specify return value
-		coat::ret(fn);
-	}
+        // specify return value
+        coat::ret();
+    }
 
-	// finalize code generation and get function pointer to the generated function
-	func_t foo = fn.finalize();
+    // finalize code generation and get function pointer to the generated function
+    func_t foo = fn.finalize();
     return foo;
 }
 /*
@@ -523,7 +523,7 @@ void test_matmul() {
     M = N = K = 640;
     // postops, perchannel
     std::vector<float> d(N, 0);
-	std::iota(d.begin(), d.end(), 0.0f);
+    std::iota(d.begin(), d.end(), 0.0f);
 
     std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
     PostOps post_ops;
@@ -537,11 +537,11 @@ void test_matmul() {
     f(a.data(), b.data(), c.data(), &ops);
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, M, N, M);
     if(c == c_ref) {
-		printf("correct \n");
-	} else {
-		printf("wrong result\n");
-	}
+        printf("correct \n");
+    } else {
+        printf("wrong result\n");
+    }
 }
 int main(){
-	test_matmul();
+    test_matmul();
 }

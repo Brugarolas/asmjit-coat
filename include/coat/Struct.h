@@ -4,6 +4,8 @@
 #include <tuple>
 #include <array>
 
+#include "Global.h"
+
 namespace coat {
 
 #define COAT_NAME(str) public: static constexpr const char *name = str
@@ -15,31 +17,31 @@ namespace coat {
 
 // declares (public) members, enum and tuple containing types
 #define COAT_DECLARE(members)                  \
-	members(COAT_STRUCT_MEMBER)                \
-	enum member_ids : int {                    \
-		members(COAT_ENUM_MEMBER)              \
-	};                                         \
-	static constexpr std::array member_names { \
-		members(COAT_STRING_MEMBER)            \
-	};                                         \
-	using types = std::tuple<                  \
-		members(COAT_TYPE_MEMBER)              \
-	void>;
+    members(COAT_STRUCT_MEMBER)                \
+    enum member_ids : int {                    \
+        members(COAT_ENUM_MEMBER)              \
+    };                                         \
+    static constexpr std::array member_names { \
+        members(COAT_STRING_MEMBER)            \
+    };                                         \
+    using types = std::tuple<                  \
+        members(COAT_TYPE_MEMBER)              \
+    void>;
 
 // declares private members and public enum and types
 #define COAT_DECLARE_PRIVATE(members)          \
 public:                                        \
-	members(COAT_STRUCT_MEMBER)                \
+    members(COAT_STRUCT_MEMBER)                \
 public:                                        \
-	enum member_ids : int {                    \
-		members(COAT_ENUM_MEMBER)              \
-	};                                         \
-	static constexpr std::array member_names { \
-		members(COAT_STRING_MEMBER)            \
-	};                                         \
-	using types = std::tuple<                  \
-		members(COAT_TYPE_MEMBER)              \
-	void>;
+    enum member_ids : int {                    \
+        members(COAT_ENUM_MEMBER)              \
+    };                                         \
+    static constexpr std::array member_names { \
+        members(COAT_STRING_MEMBER)            \
+    };                                         \
+    using types = std::tuple<                  \
+        members(COAT_TYPE_MEMBER)              \
+    void>;
 
 
 template<typename T>

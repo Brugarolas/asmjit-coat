@@ -3,7 +3,7 @@
 
 #include <asmjit/asmjit.h>
 #if defined(PROFILING_ASSEMBLY) || defined(PROFILING_SOURCE)
-#	include <asmjit-utilities/perf/jitdump.h>
+#    include <asmjit-utilities/perf/jitdump.h>
 #endif
 
 
@@ -11,30 +11,30 @@ namespace coat {
 
 class MyErrorHandler : public asmjit::ErrorHandler{
 public:
-	void handleError(asmjit::Error /*err*/, const char *msg, asmjit::BaseEmitter * /*origin*/) override {
-		fprintf(stderr, "ERROR: %s\n", msg);
-	}
+    void handleError(asmjit::Error /*err*/, const char *msg, asmjit::BaseEmitter * /*origin*/) override {
+        fprintf(stderr, "ERROR: %s\n", msg);
+    }
 };
 
 
 struct runtimeasmjit{
-	asmjit::JitRuntime rt;
-	MyErrorHandler errorHandler;
+    asmjit::JitRuntime rt;
+    MyErrorHandler errorHandler;
 #if defined(PROFILING_ASSEMBLY) || defined(PROFILING_SOURCE)
-	JitDump jd;
+    JitDump jd;
 
-	runtimeasmjit(){
-		jd.init();
-	}
-	~runtimeasmjit(){
-		jd.close();
-	}
+    runtimeasmjit(){
+        jd.init();
+    }
+    ~runtimeasmjit(){
+        jd.close();
+    }
 #endif
 
-	template<typename FnPtr>
-	Function<FnPtr> createFunction(const char *funcName="func"){
-		return Function<FnPtr>(*this, funcName);
-	}
+    template<typename FnPtr>
+    Function<FnPtr> createFunction(const char *funcName="func"){
+        return Function<FnPtr>(*this, funcName);
+    }
 };
 
 } // namespace
