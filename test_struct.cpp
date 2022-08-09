@@ -121,6 +121,6 @@ void test_struct() {
     }
 }
 
-int main(){
+int main() {
     test_struct();
 }

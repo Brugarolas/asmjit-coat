@@ -363,7 +363,7 @@ func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post
                 regA2i0 = b_t<Type, Arch>(A(i, p + 2));
                 regA3i0 = b_t<Type, Arch>(A(i, p + 3));
                 for (j = 0; j < params_c.n; j += inc) { // TODO: handle tail
-                    ptrC0 = &C(i, j);
+                    ptrC0 =& C(i, j);
                     regCi0 = b_t<Type, Arch>::load(ptrC0, xsimd::unaligned_mode());
                     regB0 = b_t<Type, Arch>::load(&B(p + 0, j), xsimd::unaligned_mode());
                     regB1 = b_t<Type, Arch>::load(&B(p + 1, j), xsimd::unaligned_mode());
@@ -391,7 +391,7 @@ func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post
                 regCi0.load(m_c.index(j, 0));
                 regCi1.load(m_c.index(j, 1 * ldc));
                 prepare_inject_param(j, 2);
-                inject_postops<width>({ &regCi0, &regCi1 }, post_ops_param, &inject_postops_param);
+                inject_postops<width>({& regCi0,& regCi1 }, post_ops_param,& inject_postops_param);
                 regCi0.store(m_c.index(j, 0));
                 regCi1.store(m_c.index(j, 1 * ldc));
             });
@@ -444,10 +444,10 @@ void matmulT(Arch*, const MatmulConstParam params_c, const MatmulMutableParam& p
             regA2i3 = b_t<Type, Arch>(A(i + 3, p + 2));
             regA3i3 = b_t<Type, Arch>(A(i + 3, p + 3));
             for (j = 0; j < params_c.n; j += inc) { // TODO: handle tail
-                ptrC0 = &C(i, j);
-                ptrC1 = &C(i + 1, j);
-                ptrC2 = &C(i + 2, j);
-                ptrC3 = &C(i + 3, j);
+                ptrC0 =& C(i, j);
+                ptrC1 =& C(i + 1, j);
+                ptrC2 =& C(i + 2, j);
+                ptrC3 =& C(i + 3, j);
                 regCi0 = b_t<Type, Arch>::load(ptrC0, xsimd::unaligned_mode());
                 regCi1 = b_t<Type, Arch>::load(ptrC1, xsimd::unaligned_mode());
                 regCi2 = b_t<Type, Arch>::load(ptrC2, xsimd::unaligned_mode());
@@ -479,7 +479,7 @@ void matmulT(Arch*, const MatmulConstParam params_c, const MatmulMutableParam& p
             regA2i0 = b_t<Type, Arch>(A(i, p + 2));
             regA3i0 = b_t<Type, Arch>(A(i, p + 3));
             for (j = 0; j < params_c.n; j += inc) { // TODO: handle tail
-                ptrC0 = &C(i, j);
+                ptrC0 =& C(i, j);
                 regCi0 = b_t<Type, Arch>::load(ptrC0, xsimd::unaligned_mode());
                 regB0 = b_t<Type, Arch>::load(&B(p + 0, j), xsimd::unaligned_mode());
                 regB1 = b_t<Type, Arch>::load(&B(p + 1, j), xsimd::unaligned_mode());
@@ -530,10 +530,10 @@ void test_matmul() {
     post_ops.ops[0].alg_type = AlgType::Abs;
     post_ops.ops[1].alg_type = AlgType::Add;
     post_ops.ops[1].binary_param.layout = BinaryDataLayout::PerChannel;
-    auto f = make_matmul<8>(M, N, K, M * 4, N * 4, M * 4, &post_ops);
+    auto f = make_matmul<8>(M, N, K, M * 4, N * 4, M * 4,& post_ops);
     JitPostOps ops;
     ops.params[1].right_addr = d.data();
-    f(a.data(), b.data(), c.data(), &ops);
+    f(a.data(), b.data(), c.data(),& ops);
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, M, N, M);
     if(c == c_ref) {
         printf("correct \n");
@@ -542,6 +542,6 @@ void test_matmul() {
     }
     coat::getJitRuntimeEnv().release_func(f);
 }
-int main(){
+int main() {
     test_matmul();
 }

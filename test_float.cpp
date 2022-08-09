@@ -193,7 +193,7 @@ void test_cond(cond_type type) {
     }
 }
 
-int main(){
+int main() {
     test_compute(compute_type::add);
     test_compute(compute_type::sub);
     test_compute(compute_type::mul);

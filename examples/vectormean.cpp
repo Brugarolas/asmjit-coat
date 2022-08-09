@@ -18,8 +18,8 @@ void mean(
     const uint32_t *  b,
           uint32_t *  r,
     size_t size
-){
-    for(size_t i=0; i<size; ++i){
+) {
+    for(size_t i=0; i<size; ++i) {
         r[i] = (a[i] + b[i]) / 2;
     }
 }
@@ -30,7 +30,7 @@ void mean_coat(
     const uint32_t *  b,
           uint32_t *  r,
     size_t size
-){
+) {
 #ifdef ENABLE_ASMJIT
     // context object
     auto fn = coat::createFunction<func_type>("gen_asmjit");
@@ -52,10 +52,10 @@ void mean_coat(
         //FIXME: does not work in clang, bindings cannot be captured in lambda, do it the old fashioned way
         //auto [aptr,bptr,rptr,sze] = fn.getArguments("a", "b", "r", "size");
         auto args = fn.getArguments("a", "b", "r", "size");
-        auto &aptr = std::get<0>(args);
-        auto &bptr = std::get<1>(args);
-        auto &rptr = std::get<2>(args);
-        auto &sze = std::get<3>(args);
+        auto& aptr = std::get<0>(args);
+        auto& bptr = std::get<1>(args);
+        auto& rptr = std::get<2>(args);
+        auto& sze = std::get<3>(args);
         // index into arrays
         coat::Value pos(uint64_t(0), "pos");
 
@@ -86,13 +86,13 @@ void mean_coat(
     }
 
 #ifdef ENABLE_LLVMJIT
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         fn.printIR("failed.ll");
         exit(EXIT_FAILURE);
     }
     fn.optimize(2);
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification after optimization failed. aborting.");
         fn.printIR("failed_opt.ll");
         exit(EXIT_FAILURE);
@@ -108,14 +108,14 @@ void mean_coat(
 }
 
 
-static void print(const std::vector<uint32_t> &vec){
-    for(size_t i=0, s=vec.size(); i<s; ++i){
+static void print(const std::vector<uint32_t>& vec) {
+    for(size_t i=0, s=vec.size(); i<s; ++i) {
         printf("%u, ", vec[i]);
     }
     printf("\n");
 }
 
-int main(){
+int main() {
     // generate some data
     std::vector<uint32_t> a, b, r, e;
     static const int datasize = 4*1024*1024 + 3;
@@ -129,19 +129,19 @@ int main(){
 
     // call
     mean(a.data(), b.data(), r.data(), r.size());
-    if(r == e){
+    if(r == e) {
         puts("mean: Success");
-    }else{
+    } else {
         puts("mean: Failure");
         print(r);
     }
 
     // coat
     mean_coat(a.data(), b.data(), r.data(), r.size());
-    if(r == e){
+    if(r == e) {
         puts("mean_coat: Success");
         return 0;
-    }else{
+    } else {
         puts("mean_coat: Failure");
         print(r);
         return -1;

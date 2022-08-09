@@ -7,6 +7,14 @@
 
 namespace coat {
 
+// Note:
+// 1, Constructor: 
+//    Construct from asmjit::x86::Mem: usually from Ptr[n]
+//    Copy constructor: copy value from Ref
+//    Move constructor: _reuse_/share the Gp
+// 2, Assign:
+//    Assign from Value: store value to Ref
+//    Assign from int: store int to Ref, if int64 will use a temp register
 //FIXME: looks like asmjit::x86::Mem is copied around quite often during construction
 template<class T>
 struct Ref {
@@ -21,26 +29,26 @@ struct Ref {
     operator       asmjit::x86::Mem&()       { return mem; }
 
     // assignment storing to memory
-    Ref &operator=(const D<T> &other){
-        _CC.mov(mem, OP);
+    Ref& operator=(const T& other) {
+        _CC.mov(mem, other);
         DL;
         return *this;
     }
-    Ref &operator=(const D<typename inner_type::value_type> &other){
-        if constexpr(sizeof(typename inner_type::value_type) == 8){
+    Ref& operator=(const D<typename inner_type::value_type>& other) {
+        if constexpr(sizeof(typename inner_type::value_type) == 8) {
             // mov to memory operand not allowed with imm64
             // copy immediate first to register, then store
             asmjit::x86::Gp temp;
-            if constexpr(std::is_signed_v<typename inner_type::value_type>){
+            if constexpr(std::is_signed_v<typename inner_type::value_type>) {
                 temp = _CC.newInt64();
-            }else{
+            } else {
                 temp = _CC.newUInt64();
             }
             _CC.mov(temp, asmjit::imm(OP));
             DL;
             _CC.mov(mem, temp);
             DL;
-        }else{
+        } else {
             _CC.mov(mem, asmjit::imm(OP));
             DL;
         }
@@ -53,12 +61,12 @@ struct Ref {
 
     // comparisons
     // swap sides of operands and comparison, not needed for assembly, but avoids code duplication in wrapper
-    Condition operator==(const T &other) const { return other==*this; }
-    Condition operator!=(const T &other) const { return other!=*this; }
-    Condition operator< (const T &other) const { return other>=*this; }
-    Condition operator<=(const T &other) const { return other> *this; }
-    Condition operator> (const T &other) const { return other<=*this; }
-    Condition operator>=(const T &other) const { return other< *this; }
+    Condition operator==(const T& other) const { return other==*this; }
+    Condition operator!=(const T& other) const { return other!=*this; }
+    Condition operator< (const T& other) const { return other>=*this; }
+    Condition operator<=(const T& other) const { return other> *this; }
+    Condition operator> (const T& other) const { return other<=*this; }
+    Condition operator>=(const T& other) const { return other< *this; }
     //TODO: possible without temporary: cmp m32 imm32, complicates Condition
     Condition operator==(int constant) const { T tmp("tmp"); tmp = *this; return tmp==constant; }
     Condition operator!=(int constant) const { T tmp("tmp"); tmp = *this; return tmp!=constant; }
@@ -67,12 +75,19 @@ struct Ref {
     Condition operator> (int constant) const { T tmp("tmp"); tmp = *this; return tmp> constant; }
     Condition operator>=(int constant) const { T tmp("tmp"); tmp = *this; return tmp>=constant; }
     // not possible in instruction, requires temporary
-    Condition operator==(const Ref &other) const { T tmp("tmp"); tmp = *this; return tmp==other; }
-    Condition operator!=(const Ref &other) const { T tmp("tmp"); tmp = *this; return tmp!=other; }
-    Condition operator< (const Ref &other) const { T tmp("tmp"); tmp = *this; return tmp< other; }
-    Condition operator<=(const Ref &other) const { T tmp("tmp"); tmp = *this; return tmp<=other; }
-    Condition operator> (const Ref &other) const { T tmp("tmp"); tmp = *this; return tmp> other; }
-    Condition operator>=(const Ref &other) const { T tmp("tmp"); tmp = *this; return tmp>=other; }
+    Condition operator==(const Ref& other) const { T tmp("tmp"); tmp = *this; return tmp==other; }
+    Condition operator!=(const Ref& other) const { T tmp("tmp"); tmp = *this; return tmp!=other; }
+    Condition operator< (const Ref& other) const { T tmp("tmp"); tmp = *this; return tmp< other; }
+    Condition operator<=(const Ref& other) const { T tmp("tmp"); tmp = *this; return tmp<=other; }
+    Condition operator> (const Ref& other) const { T tmp("tmp"); tmp = *this; return tmp> other; }
+    Condition operator>=(const Ref& other) const { T tmp("tmp"); tmp = *this; return tmp>=other; }
+
+    // cast to any ref type
+    template<typename dest_type>
+    Ref<Value<dest_type>> cast() {
+        Ref<Value<dest_type>> res(mem);
+        return res;
+    }
 };
 
 } // namespace

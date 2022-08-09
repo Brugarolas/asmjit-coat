@@ -6,7 +6,7 @@ namespace coat {
 
 inline void jump(asmjit::Label label
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     _CC.jmp(label);
@@ -14,9 +14,9 @@ inline void jump(asmjit::Label label
     ((PerfCompiler&)_CC).attachDebugLine(file, line);
 #endif
 }
-inline void jump(const Condition &cond, asmjit::Label label
+inline void jump(const Condition& cond, asmjit::Label label
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
 #ifdef PROFILING_SOURCE
@@ -33,14 +33,14 @@ inline void ret() {
     _CC.ret();
 }
 template<typename VReg>
-inline void ret(VReg &reg) {
+inline void ret(VReg& reg) {
     _CC.ret(reg);
 }
 
 template<typename Fn>
-void if_then(Condition cond, Fn &&then
+void if_then(Condition cond, Fn&& then
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     asmjit::Label l_exit = _CC.newLabel();
@@ -56,9 +56,9 @@ void if_then(Condition cond, Fn &&then
 }
 
 template<typename Then, typename Else>
-void if_then_else(Condition cond, Then &&then, Else &&else_
+void if_then_else(Condition cond, Then&& then, Else&& else_
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     asmjit::Label l_else = _CC.newLabel();
@@ -82,11 +82,10 @@ void if_then_else(Condition cond, Then &&then, Else &&else_
     _CC.bind(l_exit);
 }
 
-
 template<typename Fn>
-void loop_while(Condition cond, Fn &&body
+void loop_while(Condition cond, Fn&& body
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     asmjit::Label l_loop = _CC.newLabel();
@@ -113,9 +112,9 @@ void loop_while(Condition cond, Fn &&body
 }
 
 template<typename StepFn, typename Fn>
-void for_loop(Condition cond, StepFn&& step, Fn &&body
+void for_loop(Condition cond, StepFn&& step, Fn&& body
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     asmjit::Label l_loop = _CC.newLabel();
@@ -143,9 +142,9 @@ void for_loop(Condition cond, StepFn&& step, Fn &&body
 }
 
 template<typename Fn>
-void do_while(Fn &&body, Condition cond
+void do_while(Fn&& body, Condition cond
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     asmjit::Label l_loop = _CC.newLabel();
@@ -163,9 +162,9 @@ void do_while(Fn &&body, Condition cond
 }
 
 template<class Ptr, typename Fn>
-void for_each(Ptr &begin, Ptr &end, Fn &&body
+void for_each(Ptr& begin, Ptr& end, Fn&& body
 #ifdef PROFILING_SOURCE
-    , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+    , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
 ) {
     asmjit::Label l_loop = _CC.newLabel();
@@ -195,7 +194,7 @@ void for_each(Ptr &begin, Ptr &end, Fn &&body
 }
 
 template<class T, typename Fn>
-void for_each(const T &container, Fn &&body) {
+void for_each(const T& container, Fn&& body) {
     asmjit::Label l_loop = _CC.newLabel();
     asmjit::Label l_exit = _CC.newLabel();
 
@@ -224,17 +223,13 @@ FunctionCall(R(*fnptr)(Args...), const char*, const wrapper_type<Args>&... argum
     if constexpr(std::is_void_v<R>) {
         asmjit::InvokeNode* c;
         _CC.invoke(&c, (uint64_t)(void*)fnptr, asmjit::FuncSignatureT<R, Args...>());
-        int index=0;
-        // function parameters
-        // (c->setArg(0, arguments_0), ... ; 
+        int index = 0;
         ((c->setArg(index++, arguments)), ...);
     } else {
         reg_type<R> ret("");
         asmjit::InvokeNode* c;
         _CC.invoke(&c, (uint64_t)(void*)fnptr, asmjit::FuncSignatureT<R, Args...>());
-        int index=0;
-        // function parameters
-        // (c->setArg(0, arguments_0), ... ; 
+        int index = 0;
         ((c->setArg(index++, arguments)), ...);
         // return value
         c->setRet(0, ret);
@@ -245,21 +240,17 @@ FunctionCall(R(*fnptr)(Args...), const char*, const wrapper_type<Args>&... argum
 // calling generated function
 template<typename R, typename ...Args>
 std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
-FunctionCall(const Function<R(*)(Args...)> &func, const wrapper_type<Args>&... arguments) {
+FunctionCall(const Function<R(*)(Args...)>& func, const wrapper_type<Args>&... arguments) {
     if constexpr(std::is_void_v<R>) {
         asmjit::InvokeNode* c;
         _CC.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
-        int index=0;
-        // function parameters
-        // (c->setArg(0, arguments_0), ... ; 
+        int index = 0;
         ((c->setArg(index++, arguments)), ...);
-    }else{
+    } else {
         reg_type<R> ret("");
         asmjit::InvokeNode* c;
         _CC.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
-        int index=0;
-        // function parameters
-        // (c->setArg(0, arguments_0), ... ; 
+        int index = 0;
         ((c->setArg(index++, arguments)), ...);
         // return value
         c->setRet(0, ret);
@@ -270,21 +261,17 @@ FunctionCall(const Function<R(*)(Args...)> &func, const wrapper_type<Args>&... a
 // calling internal function inside generated code
 template<typename R, typename ...Args>
 std::conditional_t<std::is_void_v<R>, void, reg_type<R>>
-FunctionCall(const InternalFunction<R(*)(Args...)> &func, const wrapper_type<Args>&... arguments) {
+FunctionCall(const InternalFunction<R(*)(Args...)>& func, const wrapper_type<Args>&... arguments) {
     if constexpr(std::is_void_v<R>) {
         asmjit::InvokeNode* c;
         _CC.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
-        int index=0;
-        // function parameters
-        // (c->setArg(0, arguments_0), ... ; 
+        int index = 0;
         ((c->setArg(index++, arguments)), ...);
-    }else{
+    } else {
         reg_type<R> ret("");
         asmjit::InvokeNode* c;
         _CC.invoke(&c, func.funcNode->label(), asmjit::FuncSignatureT<R, Args...>());
-        int index=0;
-        // function parameters
-        // (c->setArg(0, arguments_0), ... ; 
+        int index = 0;
         ((c->setArg(index++, arguments)), ...);
         // return value
         c->setRet(0, ret);
@@ -292,10 +279,9 @@ FunctionCall(const InternalFunction<R(*)(Args...)> &func, const wrapper_type<Arg
     }
 }
 
-
 // pointer difference in bytes, no pointer arithmetic (used by Ptr operators)
 template<typename T>
-Value<size_t> distance(Ptr<Value<T>> &beg, Ptr<Value<T>> &end) {
+Value<size_t> distance(Ptr<Value<T>>& beg, Ptr<Value<T>>& end) {
     Value<size_t> vr_ret("distance");
     _CC.mov(vr_ret, end);
     _CC.sub(vr_ret, beg);

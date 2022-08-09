@@ -11,20 +11,20 @@
 #ifdef PROFILING_SOURCE
 
 #define ASMJIT_OPERATOR_CONSTANT(R, OP) \
-    R operator OP(const D<int> &amount) const { R tmp("tmp"); tmp = DebugOperand{*this, amount.file, amount.line}; tmp OP##= amount; return tmp; }
+    R operator OP(const D<int>& amount) const { R tmp("tmp"); tmp = DebugOperand{*this, amount.file, amount.line}; tmp OP##= amount; return tmp; }
 #define ASMJIT_OPERATOR_VALUE(R, OP) \
-    R operator OP(const D<R> &other) const { R tmp("tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
+    R operator OP(const D<R>& other) const { R tmp("tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
 #define ASMJIT_OPERATOR_REF(R, OP) \
-    R operator OP(const D<Ref<R>> &other) const { R tmp("tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
+    R operator OP(const D<Ref<R>>& other) const { R tmp("tmp"); tmp = DebugOperand{*this, other.file, other.line}; tmp OP##= other; return tmp; }
 
 #else
 
 #define ASMJIT_OPERATOR_CONSTANT(R, OP) \
     R operator OP(int amount) const { R tmp("tmp"); tmp = *this; tmp OP##= amount; return tmp; }
 #define ASMJIT_OPERATOR_VALUE(R, OP) \
-    R operator OP(const R &other) const { R tmp("tmp"); tmp = *this; tmp OP##= other; return tmp; }
+    R operator OP(const R& other) const { R tmp("tmp"); tmp = *this; tmp OP##= other; return tmp; }
 #define ASMJIT_OPERATOR_REF(R, OP) \
-    R operator OP(const Ref<R> &other) const { R tmp("tmp"); tmp = *this; tmp OP##= other; return tmp; }
+    R operator OP(const Ref<R>& other) const { R tmp("tmp"); tmp = *this; tmp OP##= other; return tmp; }
 
 #endif
 

@@ -11,7 +11,7 @@
 
 //TODO: finish implementation to be a real example program
 
-int main(){
+int main() {
     // function signature
     using func_type = void (*)(const uint32_t*, const uint32_t*, uint32_t*, size_t);
 
@@ -56,13 +56,13 @@ int main(){
     }
 
     fn.printIR("intersection.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE);
     }
     fn.optimize(2);
     fn.printIR("intersection_opt.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification after optimization failed. aborting.");
         exit(EXIT_FAILURE);
     }
@@ -82,7 +82,7 @@ int main(){
     raise(SIGTRAP); // stop debugger here
     foo(inputa.data(), inputb.data(), result.data(), result.size());
 
-    for(size_t i=0; i<datasize; ++i){
+    for(size_t i=0; i<datasize; ++i) {
         printf("%u, ", result[i]);
     }
     printf("\n");

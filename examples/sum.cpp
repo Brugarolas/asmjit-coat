@@ -6,7 +6,7 @@
 #include <coat/ControlFlow.h>
 
 
-int main(){
+int main() {
     // generate some data
     std::vector<uint64_t> data(1 << 25);
     std::iota(data.begin(), data.end(), 0);
@@ -39,7 +39,7 @@ int main(){
         // "meta-variable" for past-the-end pointer
         auto end = data + size; _(end);
         // loop over all elements
-        coat::for_each(data, end, [&](auto &element){
+        coat::for_each(data, end, [&](auto& element) {
             // add each element to the sum
             sum += element;
         });
@@ -48,7 +48,7 @@ int main(){
     }
 #ifdef ENABLE_LLVMJIT
     fn.printIR("sumLLVM.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
@@ -61,10 +61,10 @@ int main(){
 
     // print result
     uint64_t expected = std::accumulate(data.begin(), data.end(), uint64_t(0));
-    if(result == expected){
+    if(result == expected) {
         printf("correct result: %zu\n", result);
         return 0;
-    }else{
+    } else {
         printf("wrong result:\nresult: %zu; expected: %zu\n", result, expected);
         return -1;
     }

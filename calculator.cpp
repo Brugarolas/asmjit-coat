@@ -23,7 +23,7 @@ COAT_DECLARE(MEMBERS)
     Table(size_t ncols, size_t nrows) : ncols(ncols), nrows(nrows) {
         data = new uint64_t[ncols * nrows];
     }
-    ~Table(){
+    ~Table() {
         delete[] data;
     }
 
@@ -39,7 +39,7 @@ struct has_custom_base<Table> : std::true_type {};
 template<>
 struct StructBase<Struct<Table>> {
     Ptr<Value<uint64_t>> operator[](size_t col) const {
-        auto &self = static_cast<const Struct<Table>&>(*this);
+        auto& self = static_cast<const Struct<Table>&>(*this);
         //FIXME: loaded every time
         auto vr_nrows = self.template get_value<Table::member_nrows>();
         auto vr_data = self.template get_value<Table::member_data>();
@@ -56,17 +56,17 @@ using column_t = std::vector<uint64_t>;
 
 namespace {
 
-static column_t generic(const Table &table, const char *operations){
+static column_t generic(const Table& table, const char* operations) {
     const size_t size = table.nrows;
     column_t result(size);
     auto t_start = std::chrono::high_resolution_clock::now();
-    for(size_t i=0; i<size; ++i){
-        const char *p = operations;
+    for(size_t i=0; i<size; ++i) {
+        const char* p = operations;
         int col = *p - '0';
         ++p;
         uint64_t res = table[col][i];
-        while(*p){
-            switch(*p){
+        while(*p) {
+            switch(*p) {
                 case '+':
                     col = p[1] - '0';
                     res += table[col][i];
@@ -90,21 +90,21 @@ static column_t generic(const Table &table, const char *operations){
 
 
 template<class Fn>
-void assemble_jit1(Fn &fn, const char *operations){
+void assemble_jit1(Fn& fn, const char* operations) {
     auto args = fn.getArguments("table", "result", "size");
-    auto &vr_table = std::get<0>(args);
-    auto &vr_result = std::get<1>(args);
-    auto &vr_size = std::get<2>(args);
+    auto& vr_table = std::get<0>(args);
+    auto& vr_result = std::get<1>(args);
+    auto& vr_size = std::get<2>(args);
 
     coat::Value vr_index(fn, 0UL, "index");
     coat::loop_while(fn, vr_index < vr_size, [&]{
-        const char *p = operations;
+        const char* p = operations;
         int col = *p - '0';
         ++p;
         auto vr_res = fn.template getValue<uint64_t>("res");
         vr_res = vr_table[col][vr_index];
-        while(*p){
-            switch(*p){
+        while(*p) {
+            switch(*p) {
                 case '+':
                     col = p[1] - '0';
                     vr_res += vr_table[col][vr_index];
@@ -126,25 +126,25 @@ void assemble_jit1(Fn &fn, const char *operations){
 }
 
 template<class Fn>
-void assemble_jit2(Fn &fn, const char *operations){
+void assemble_jit2(Fn& fn, const char* operations) {
     auto args = fn.getArguments("table", "result", "size");
-    auto &vr_table = std::get<0>(args);
-    auto &vr_result = std::get<1>(args);
-    auto &vr_size = std::get<2>(args);
+    auto& vr_table = std::get<0>(args);
+    auto& vr_result = std::get<1>(args);
+    auto& vr_size = std::get<2>(args);
 
     auto vr_nrows = vr_table.template get_value<Table::member_nrows>();
     auto vr_data = vr_table.template get_value<Table::member_data>();
     coat::Value vr_index(fn, 0UL, "index");
     coat::loop_while(fn, vr_index < vr_size, [&]{
-        const char *p = operations;
+        const char* p = operations;
         int col = *p - '0';
         ++p;
         auto vr_res = fn.template getValue<uint64_t>("res");
         //vr_res = vr_table[col][vr_index];
         auto vr_col = vr_data + (vr_nrows * col);
         vr_res = vr_col[vr_index];
-        while(*p){
-            switch(*p){
+        while(*p) {
+            switch(*p) {
                 case '+': {
                     col = p[1] - '0';
                     //vr_res += vr_table[col][vr_index];
@@ -172,14 +172,14 @@ void assemble_jit2(Fn &fn, const char *operations){
 }
 
 template<class Fn>
-void assemble_jit3(Fn &fn, const char *operations, const Table &table){
+void assemble_jit3(Fn& fn, const char* operations, const Table& table) {
     auto args = fn.getArguments("result", "size");
-    auto &vr_result = std::get<0>(args);
-    auto &vr_size = std::get<1>(args);
+    auto& vr_result = std::get<0>(args);
+    auto& vr_size = std::get<1>(args);
 
     coat::Value vr_index(fn, 0UL, "index");
     coat::loop_while(fn, vr_index < vr_size, [&]{
-        const char *p = operations;
+        const char* p = operations;
         int col = *p - '0';
         ++p;
         auto vr_res = fn.template getValue<uint64_t>("res");
@@ -187,8 +187,8 @@ void assemble_jit3(Fn &fn, const char *operations, const Table &table){
         const uint64_t *column = table[col];
         auto vr_col = fn.embedValue(column, "col");
         vr_res = vr_col[vr_index];
-        while(*p){
-            switch(*p){
+        while(*p) {
+            switch(*p) {
                 case '+': {
                     col = p[1] - '0';
                     //vr_res += vr_table[col][vr_index];
@@ -219,7 +219,7 @@ void assemble_jit3(Fn &fn, const char *operations, const Table &table){
 
 
 #ifdef ENABLE_ASMJIT
-static column_t jit1_asmjit(const Table &table, const char *operations, coat::runtimeasmjit &asmrt){
+static column_t jit1_asmjit(const Table& table, const char* operations, coat::runtimeasmjit& asmrt) {
     const size_t size = table.nrows;
     column_t result(size);
 
@@ -248,7 +248,7 @@ static column_t jit1_asmjit(const Table &table, const char *operations, coat::ru
 }
 #endif
 #ifdef ENABLE_LLVMJIT
-static column_t jit1_llvmjit(const Table &table, const char *operations, coat::runtimellvmjit &llvmrt){
+static column_t jit1_llvmjit(const Table& table, const char* operations, coat::runtimellvmjit& llvmrt) {
     const size_t size = table.nrows;
     column_t result(size);
 
@@ -259,13 +259,13 @@ static column_t jit1_llvmjit(const Table &table, const char *operations, coat::r
     assemble_jit1(fn, operations);
 
     fn.printIR("jit1.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
     fn.optimize(2);
     fn.printIR("jit1_opt.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification after optimization failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
@@ -288,7 +288,7 @@ static column_t jit1_llvmjit(const Table &table, const char *operations, coat::r
 #endif
 
 #ifdef ENABLE_ASMJIT
-static column_t jit2_asmjit(const Table &table, const char *operations, coat::runtimeasmjit &asmrt){
+static column_t jit2_asmjit(const Table& table, const char* operations, coat::runtimeasmjit& asmrt) {
     const size_t size = table.nrows;
     column_t result(size);
 
@@ -317,7 +317,7 @@ static column_t jit2_asmjit(const Table &table, const char *operations, coat::ru
 }
 #endif
 #ifdef ENABLE_LLVMJIT
-static column_t jit2_llvmjit(const Table &table, const char *operations, coat::runtimellvmjit &llvmrt){
+static column_t jit2_llvmjit(const Table& table, const char* operations, coat::runtimellvmjit& llvmrt) {
     const size_t size = table.nrows;
     column_t result(size);
 
@@ -328,13 +328,13 @@ static column_t jit2_llvmjit(const Table &table, const char *operations, coat::r
     assemble_jit2(fn, operations);
 
     fn.printIR("jit2.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
     fn.optimize(2);
     fn.printIR("jit2_opt.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification after optimization failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
@@ -357,7 +357,7 @@ static column_t jit2_llvmjit(const Table &table, const char *operations, coat::r
 #endif
 
 #ifdef ENABLE_ASMJIT
-static column_t jit3_asmjit(const Table &table, const char *operations, coat::runtimeasmjit &asmrt){
+static column_t jit3_asmjit(const Table& table, const char* operations, coat::runtimeasmjit& asmrt) {
     const size_t size = table.nrows;
     column_t result(size);
 
@@ -386,7 +386,7 @@ static column_t jit3_asmjit(const Table &table, const char *operations, coat::ru
 }
 #endif
 #ifdef ENABLE_LLVMJIT
-static column_t jit3_llvmjit(const Table &table, const char *operations, coat::runtimellvmjit &llvmrt){
+static column_t jit3_llvmjit(const Table& table, const char* operations, coat::runtimellvmjit& llvmrt) {
     const size_t size = table.nrows;
     column_t result(size);
 
@@ -397,13 +397,13 @@ static column_t jit3_llvmjit(const Table &table, const char *operations, coat::r
     assemble_jit3(fn, operations, table);
 
     fn.printIR("jit3.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
     fn.optimize(2);
     fn.printIR("jit3_opt.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification after optimization failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
@@ -426,9 +426,9 @@ static column_t jit3_llvmjit(const Table &table, const char *operations, coat::r
 #endif
 
 
-static void write(const column_t &result, const char *name){
+static void write(const column_t& result, const char* name) {
     FILE *fd = fopen(name, "w");
-    for(uint64_t r : result){
+    for(uint64_t r : result) {
         fprintf(fd, "%lu\n", r);
     }
     fclose(fd);
@@ -437,18 +437,18 @@ static void write(const column_t &result, const char *name){
 } // anonymous namespace
 
 
-int main(int argc, char **argv){
+int main(int argc, char **argv) {
     // defaults
     size_t cols = 5;
     size_t rows = 8*1024*1024;
     size_t iterations = 1;
 #define REPEAT for(size_t i=0; i<iterations; ++i)
-    const char *operations = "2+1-0+4-3";
+    const char* operations = "2+1-0+4-3";
     bool dump=false;
 
     int opt;
-    while((opt=getopt(argc, argv, "hdc:r:i:o:")) != -1){
-        switch(opt){
+    while((opt=getopt(argc, argv, "hdc:r:i:o:")) != -1) {
+        switch(opt) {
             case 'h':
                 printf("\
 %s [options]\n\
@@ -469,7 +469,7 @@ int main(int argc, char **argv){
 
     std::mt19937 gen(42);
     Table table(cols, rows);
-    for(size_t i=0;i<cols; ++i){
+    for(size_t i=0;i<cols; ++i) {
         std::iota(table[i], table[i] + table.nrows, 0);
         std::shuffle(table[i], table[i] + table.nrows, gen);
     }

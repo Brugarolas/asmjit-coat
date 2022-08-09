@@ -7,11 +7,11 @@
 
 
 // function to be called, residing outside of generated code
-int calc(int value){
+int calc(int value) {
     return value * 2;
 }
 
-int main(){
+int main() {
     // signature of the generated function
     using func_t = int (*)(int value);
 
@@ -42,7 +42,7 @@ int main(){
     }
 #ifdef ENABLE_LLVMJIT
     fn.printIR("call.ll");
-    if(!fn.verify()){
+    if(!fn.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
@@ -55,10 +55,10 @@ int main(){
 
     // print result
     uint64_t expected = calc(42);
-    if(result == expected){
+    if(result == expected) {
         printf("correct result: %zu\n", result);
         return 0;
-    }else{
+    } else {
         printf("wrong result:\nresult: %zu; expected: %zu\n", result, expected);
         return -1;
     }

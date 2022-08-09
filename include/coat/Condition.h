@@ -10,7 +10,7 @@ enum class ConditionFlag {
     //z, nz,
     l, le, b, be,
     g, ge, a, ae,
-    // float
+    // for float comparision flag
     e_f, ne_f,
     l_f, le_f,
     g_f, ge_f,
@@ -19,6 +19,10 @@ enum class ConditionFlag {
 //TODO: combinations of conditions not possible, e.g. "i<j && r<s"
 //      really needs expressiont tree in the end
 
+// NOTE:
+// 1, does not allocate new register
+// 2, all needed register/operands are _copied_ from others
+// 3, only construct from register/operands, no copy/assign constructor
 // holds operands and comparison type
 // cannot emit instructions directly as comparison emits multiple instructions at different locations
 // while-loop: if(cond) do{ ... }while(cond);
@@ -26,7 +30,7 @@ struct Condition {
     // take by value as it might be a temporary which we have to store otherwise it's gone
     asmjit::x86::Gp reg;
     asmjit::x86::Xmm reg_xmm;
-    //const asmjit::Operand &operand;
+    //const asmjit::Operand& operand;
     using operand_t = std::variant<asmjit::x86::Gp, int, asmjit::x86::Mem, asmjit::x86::Xmm>;
     operand_t operand;
     ConditionFlag cond;
@@ -38,9 +42,11 @@ struct Condition {
     Condition(asmjit::x86::Xmm reg_, operand_t operand, ConditionFlag cond)
         : reg_xmm(reg_), operand(operand), cond(cond), is_float(cond >= ConditionFlag::e_f) {}
 
+    NONCOPYABLE(Condition);
+
     Condition operator!() const {
         ConditionFlag newcond;
-        switch(cond){
+        switch(cond) {
             case ConditionFlag::e : newcond = ConditionFlag::ne; break;
             case ConditionFlag::ne: newcond = ConditionFlag::e ; break;
             case ConditionFlag::l : newcond = ConditionFlag::ge; break;
@@ -69,11 +75,11 @@ struct Condition {
 
     void compare(
 #ifdef PROFILING_SOURCE
-        const char *file=__builtin_FILE(), int line=__builtin_LINE()
+        const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
     ) const {
         if (!is_float) {
-            switch(operand.index()){
+            switch(operand.index()) {
                 case 0: _CC.cmp(reg, std::get<asmjit::x86::Gp>(operand)); break;
                 case 1: _CC.cmp(reg, asmjit::imm(std::get<int>(operand))); break;
                 case 2: _CC.cmp(reg, std::get<asmjit::x86::Mem>(operand)); break;
@@ -83,7 +89,7 @@ struct Condition {
             }
         } else {
             // 
-            switch(operand.index()){
+            switch(operand.index()) {
                 case 3: _CC.comiss(reg_xmm, std::get<asmjit::x86::Xmm>(operand)); break;
                 case 2: _CC.comiss(reg_xmm, std::get<asmjit::x86::Mem>(operand)); break;
 
@@ -95,9 +101,9 @@ struct Condition {
         ((PerfCompiler&)_CC).attachDebugLine(file, line);
 #endif
     }
-    void setbyte(asmjit::x86::Gp &dest) const {
+    void setbyte(asmjit::x86::Gp& dest) const {
         if (!is_float) {
-            switch(cond){
+            switch(cond) {
                 case ConditionFlag::e : _CC.sete (dest); break;
                 case ConditionFlag::ne: _CC.setne(dest); break;
                 case ConditionFlag::l : _CC.setl (dest); break;
@@ -118,11 +124,11 @@ struct Condition {
     }
     void jump(asmjit::Label label
 #ifdef PROFILING_SOURCE
-        , const char *file=__builtin_FILE(), int line=__builtin_LINE()
+        , const char* file=__builtin_FILE(), int line=__builtin_LINE()
 #endif
     ) const {
         if (!is_float) {
-            switch(cond){
+            switch(cond) {
                 case ConditionFlag::e : _CC.je (label); break;
                 case ConditionFlag::ne: _CC.jne(label); break;
                 case ConditionFlag::l : _CC.jl (label); break;

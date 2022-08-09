@@ -21,13 +21,13 @@ COAT_DECLARE_PRIVATE(MEMBERS)
 #undef MEMBERS
 
 public:
-    my_vector(){
+    my_vector() {
         // set it to some hardcoded state
         start = new int[42];
         finish = start + 23;
         capacity = start + 42;
     }
-    ~my_vector(){
+    ~my_vector() {
         delete[] start;
     }
 
@@ -38,7 +38,7 @@ public:
 
 
 
-int main(){
+int main() {
     // signature of the generated function: taking pointer to data structure
     using func_t = size_t (*)(my_vector *vec);
 
@@ -80,10 +80,10 @@ int main(){
 
     // print result
     size_t expected = vec.size();
-    if(result == expected){
+    if(result == expected) {
         printf("correct result: %zu\n", result);
         return 0;
-    }else{
+    } else {
         printf("wrong result:\nresult: %zu; expected: %zu\n", result, expected);
         return -1;
     }

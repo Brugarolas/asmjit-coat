@@ -47,38 +47,38 @@ struct Function<R(*)(Args...)> {
 
     asmjit::FileLogger logger;
 
-    const char *funcName;
-    asmjit::FuncNode *funcNode;
+    const char* funcName;
+    asmjit::FuncNode* funcNode;
 
     class MyErrorHandler : public asmjit::ErrorHandler{
     public:
-        void handleError(asmjit::Error /*err*/, const char *msg, asmjit::BaseEmitter * /*origin*/) override {
+        void handleError(asmjit::Error /*err*/, const char* msg, asmjit::BaseEmitter* /*origin*/) override {
             fprintf(stderr, "ERROR: %s\n", msg);
         }
-    } errorHandler;;
+    } errorHandler;
 
-    Function(const char *funcName="func") : funcName(funcName) {
+    Function(const char* funcName="func") : funcName(funcName) {
         code.init(getJitRuntimeEnv().rt.environment());
         code.setErrorHandler(&errorHandler);
         code.attach(&_CC);
 
         funcNode = _CC.addFunc(asmjit::FuncSignatureT<R,Args...>());
     }
-    Function(const Function &other) = delete;
+    NONCOPYABLE(Function);
 
-    void enableCodeDump(FILE *fd=stdout){
+    void enableCodeDump(FILE* fd=stdout) {
         logger.setFlags(asmjit::FormatFlags::kHexOffsets);
         logger.setFile(fd);
         code.setLogger(&logger);
     }
 
     template<typename FuncSig>
-    InternalFunction<FuncSig> addFunction(const char* /* ignore function name */){
+    InternalFunction<FuncSig> addFunction(const char* /* ignore function name */) {
         return InternalFunction<FuncSig>();
     }
 
     template<class IFunc>
-    void startNextFunction(const IFunc &internalCall){
+    void startNextFunction(const IFunc& internalCall) {
         // close previous function
         _CC.endFunc();
         // start passed function
@@ -92,8 +92,8 @@ struct Function<R(*)(Args...)> {
         std::tuple<wrapper_type<Args>...> ret { wrapper_type<Args>(names)... };
         // get argument value and put it in wrapper object
         std::apply(
-            [&](auto &&...args){
-                int idx=0;
+            [&](auto&& ...args) {
+                int idx = 0;
                 ((funcNode->setArg(idx++, args)), ...);
             },
             ret
@@ -103,22 +103,22 @@ struct Function<R(*)(Args...)> {
 
     //HACK: trying factory
     template<typename T>
-    Value<T> getValue(const char *name="") {
+    Value<T> getValue(const char* name="") {
         return Value<T>(name);
     }
     // embed value in the generated code, returns wrapper initialized to this value
     template<typename T>
 #ifdef PROFILING_SOURCE
-    wrapper_type<T> embedValue(T value, const char *name="", const char *file=__builtin_FILE(), int line=__builtin_LINE()){
+    wrapper_type<T> embedValue(T value, const char* name="", const char* file=__builtin_FILE(), int line=__builtin_LINE()) {
         return wrapper_type<T>(value, name, file, line);
     }
 #else
-    wrapper_type<T> embedValue(T value, const char *name=""){
+    wrapper_type<T> embedValue(T value, const char* name="") {
         return wrapper_type<T>(value, name);
     }
 #endif
 
-    func_type finalize(){
+    func_type finalize() {
         func_type fn;
 
         _CC.endFunc();
@@ -129,7 +129,7 @@ struct Function<R(*)(Args...)> {
         );
 
         asmjit::Error err = getJitRuntimeEnv().rt.add(&fn, &code);
-        if(err){
+        if (err) {
             fprintf(stderr, "runtime add failed with CodeCompiler\n");
             std::exit(1);
         }
@@ -147,12 +147,12 @@ struct InternalFunction<R(*)(Args...)> {
     using func_type = R (*)(Args...);
     using return_type = R;
 
-    asmjit::FuncNode *funcNode;
+    asmjit::FuncNode* funcNode;
 
     InternalFunction() {
         funcNode = _CC.newFunc(asmjit::FuncSignatureT<R,Args...>());
     }
-    InternalFunction(const InternalFunction &other) : funcNode(other.funcNode) {}
+    InternalFunction(const InternalFunction& other) : funcNode(other.funcNode) {}
 
 
     template<typename ...Names>
@@ -162,8 +162,8 @@ struct InternalFunction<R(*)(Args...)> {
         std::tuple<wrapper_type<Args>...> ret { wrapper_type<Args>(names)... };
         // get argument value and put it in wrapper object
         std::apply(
-            [&](auto &&...args){
-                int idx=0;
+            [&](auto&& ...args) {
+                int idx = 0;
                 ((funcNode->setArg(idx++, args)), ...);
             },
             ret
@@ -173,7 +173,7 @@ struct InternalFunction<R(*)(Args...)> {
 };
 
 template<typename FnPtr>
-Function<FnPtr> createFunction(const char *funcName="func"){
+Function<FnPtr> createFunction(const char* funcName="func") {
     return Function<FnPtr>(funcName);
 }
 

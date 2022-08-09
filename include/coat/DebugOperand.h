@@ -8,11 +8,11 @@ namespace coat {
     // it just carries the source file and line number, additionally to the operand
     template<typename T>
     struct DebugOperand {
-        const T &operand;
-        const char *file;
+        const T& operand;
+        const char* file;
         int line;
 
-        DebugOperand(const T &operand, const char *file=__builtin_FILE(), int line=__builtin_LINE())
+        DebugOperand(const T& operand, const char* file=__builtin_FILE(), int line=__builtin_LINE())
             : operand(operand), file(file), line(line) {}
     };
 

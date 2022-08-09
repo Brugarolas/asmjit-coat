@@ -10,14 +10,14 @@
 
 // generate code, in this case just sum all element in array
 template<class Fn>
-void assemble_sum_foreach(Fn &fn){
+void assemble_sum_foreach(Fn& fn) {
     auto args = fn.getArguments("arr", "cnt");
-    auto &vr_arr = std::get<0>(args);
-    auto &vr_cnt = std::get<1>(args);
+    auto& vr_arr = std::get<0>(args);
+    auto& vr_cnt = std::get<1>(args);
 
     coat::Value vr_sum(0, "sum");
     auto vr_arrend = vr_arr + vr_cnt;
-    coat::for_each(vr_arr, vr_arrend, [&](auto &vr_ele){
+    coat::for_each(vr_arr, vr_arrend, [&](auto& vr_ele) {
         vr_sum += vr_ele;
     });
     coat::ret(vr_sum);
@@ -25,14 +25,14 @@ void assemble_sum_foreach(Fn &fn){
 
 // generate code, in this case just sum all element in array
 template<class Fn>
-void assemble_sum_counter(Fn &fn){
+void assemble_sum_counter(Fn& fn) {
     auto args = fn.getArguments("arr", "cnt");
-    auto &vr_arr = std::get<0>(args);
-    auto &vr_cnt = std::get<1>(args);
+    auto& vr_arr = std::get<0>(args);
+    auto& vr_cnt = std::get<1>(args);
 
     coat::Value vr_sum(0, "sum");
     coat::Value vr_idx(size_t(0), "idx");
-    coat::loop_while(vr_idx < vr_cnt, [&](){
+    coat::loop_while(vr_idx < vr_cnt, [&]() {
         vr_sum += vr_arr[vr_idx];
         ++vr_idx;
     });
@@ -42,16 +42,16 @@ void assemble_sum_counter(Fn &fn){
 
 // generate code, sum if element is odd
 template<class Fn>
-void assemble_condsum_loop(Fn &fn){
+void assemble_condsum_loop(Fn& fn) {
     auto args = fn.getArguments("arr", "cnt");
-    auto &vr_arr = std::get<0>(args);
-    auto &vr_cnt = std::get<1>(args);
+    auto& vr_arr = std::get<0>(args);
+    auto& vr_cnt = std::get<1>(args);
 
     coat::Value vr_sum(0, "sum");
     auto vr_arrend = vr_arr + vr_cnt;
     coat::do_while([&]{
         auto vr_ele = *vr_arr;
-        if_then((vr_ele & 1) != 0, [&]{
+        if_then((vr_ele&  1) != 0, [&]{
             vr_sum += vr_ele;
         });
         ++vr_arr;
@@ -72,9 +72,9 @@ COAT_DECLARE(MEMBERS)
 };
 
 template<class Fn>
-void assemble_getStructElement(Fn &fn){
+void assemble_getStructElement(Fn& fn) {
     auto args = fn.getArguments("triple");
-    auto &vr_triple = std::get<0>(args);
+    auto& vr_triple = std::get<0>(args);
 
     auto vr_m = vr_triple.template get_reference<triple::member_second>();
     auto vr_ret = fn.template getValue<uint32_t>();
@@ -89,22 +89,22 @@ struct wrapped_vector {
 };
 
 template<class Fn>
-void assemble_vectorsum(Fn &fn){
+void assemble_vectorsum(Fn& fn) {
     auto args = fn.getArguments("vector");
-    auto &vr_vector = std::get<0>(args);
+    auto& vr_vector = std::get<0>(args);
 
     coat::Value vr_sum(0, "sum");
     auto vr_pos = vr_vector.template get_value<0>();
     auto vr_end = vr_vector.template get_value<1>();
-    coat::for_each(vr_pos, vr_end, [&](auto &vr_ele){
+    coat::for_each(vr_pos, vr_end, [&](auto& vr_ele) {
         vr_sum += vr_ele;
     });
     coat::ret(vr_sum);
 }
 
 
-int main(int argc, char **argv){
-    if(argc < 3){
+int main(int argc, char **argv) {
+    if(argc < 3) {
         puts("usage: ./prog divisor array_of_numbers\nexample: ./prog 2 24 32 86 42 23 16 4 8");
         return -1;
     }
@@ -112,7 +112,7 @@ int main(int argc, char **argv){
     //int divisor = atoi(argv[1]); //FIXME: remove, also from program arguments
     size_t cnt = argc - 2;
     int *array = new int[cnt];
-    for(int i=2; i<argc; ++i){
+    for(int i=2; i<argc; ++i) {
         array[i-2] = atoi(argv[i]);
     }
 
@@ -295,7 +295,7 @@ int main(int argc, char **argv){
 
     std::vector<int> vec;
     vec.reserve(cnt);
-    for(size_t i=0; i<cnt; ++i){
+    for(size_t i=0; i<cnt; ++i) {
         vec.push_back(array[i]);
     }
 #ifdef ENABLE_ASMJIT
@@ -330,7 +330,7 @@ int main(int argc, char **argv){
 
     // testing asmjit backend
     pod_vector<int> pod_vec;
-    for(size_t i=0; i<cnt; ++i){
+    for(size_t i=0; i<cnt; ++i) {
         pod_vec.push_back(array[i]);
     }
 #ifdef ENABLE_ASMJIT
@@ -338,11 +338,11 @@ int main(int argc, char **argv){
         using func_type = size_t (*)(pod_vector<int>*);
         auto fn = coat::createFunction<func_type>("sum_podvec");
         auto args = fn.getArguments("podvec");
-        auto &vr_podvec = std::get<0>(args);
+        auto& vr_podvec = std::get<0>(args);
         auto vr_size = vr_podvec.size();
 
         coat::Value vr_sum(0, "sum");
-        coat::for_each(vr_podvec, [&](auto &vr_ele){
+        coat::for_each(vr_podvec, [&](auto& vr_ele) {
             vr_sum += vr_ele;
         });
         vr_podvec.push_back(vr_sum);
@@ -358,7 +358,7 @@ int main(int argc, char **argv){
         coat::getJitRuntimeEnv().release_func(fnptr);
 
         printf("current elements: ");
-        for(const auto &ele : pod_vec){
+        for(const auto& ele : pod_vec) {
             printf("%i, ", ele);
         }
         printf("\n");
@@ -372,11 +372,11 @@ int main(int argc, char **argv){
         using func_type = size_t (*)(pod_vector<int>*);
         auto fn = llvmrt.createFunction<func_type>("sum_podvec");
         auto args = fn.getArguments("podvec");
-        auto &vr_podvec = std::get<0>(args);
+        auto& vr_podvec = std::get<0>(args);
         auto vr_size = vr_podvec.size();
 
         coat::Value vr_sum(0, "sum");
-        coat::for_each(vr_podvec, [&](auto &vr_ele){
+        coat::for_each(vr_podvec, [&](auto& vr_ele) {
             vr_sum += vr_ele;
         });
         vr_podvec.push_back(vr_sum);
@@ -394,7 +394,7 @@ int main(int argc, char **argv){
         //FIXME: free function
 
         printf("current elements: ");
-        for(const auto &ele : pod_vec){
+        for(const auto& ele : pod_vec) {
             printf("%i, ", ele);
         }
         printf("\n");

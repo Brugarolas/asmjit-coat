@@ -34,5 +34,6 @@ inline ThreadCompilerContext& getCcContext() {
 
 // helper macro
 #define _CC getCcContext().cc
+#define NONCOPYABLE(Type) Type(const Type&)=delete; Type& operator=(const Type&)=delete
 
 }

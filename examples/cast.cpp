@@ -7,9 +7,9 @@
 #include <coat/ControlFlow.h>
 
 
-int main(){
+int main() {
     // allocate buffer
-    uint8_t *buffer = new uint8_t[sizeof(uint64_t)+sizeof(uint32_t)+sizeof(uint8_t)];
+    uint8_t *buffer = new uint8_t[sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint8_t)];
 
     // signature of the generated function: taking pointer and size, returning sum
     using func_t = void (*)(uint8_t *buffer);
@@ -60,9 +60,9 @@ int main(){
 
     delete[] buffer;
 
-    if(first==0xCAFEBABE'CAFED00Dul && second==0xDEADC0DEu && third==42){
+    if(first==0xCAFEBABE'CAFED00Dul && second==0xDEADC0DEu && third==42) {
         return 0;
-    }else{
+    } else {
         puts("unexpected results");
         return -1;
     }

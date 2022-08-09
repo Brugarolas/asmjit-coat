@@ -6,20 +6,20 @@
 #include <coat/ControlFlow.h>
 
 
-uint32_t fib(uint32_t index){
-    if(index < 2){
+uint32_t fib(uint32_t index) {
+    if(index < 2) {
         return index;
-    }else{
+    } else {
         return fib(index-1) + fib(index-2);
     }
 }
 
 
 template<class Fn>
-void assemble_selfcall(Fn &fn){
+void assemble_selfcall(Fn& fn) {
     //auto [index] = fn.getArguments("index"); // clang does not like it, bindings cannot be used in lambda captures
     auto args = fn.getArguments("index");
-    auto &index = std::get<0>(args);
+    auto& index = std::get<0>(args);
     coat::if_then_else(index < 2, [&]{
         coat::ret(index);
     }, [&]{
@@ -30,7 +30,7 @@ void assemble_selfcall(Fn &fn){
 }
 
 template<class Fn, typename Fnptr>
-void assemble_crosscall(Fn &fn, Fnptr fnptr, const char *funcname){
+void assemble_crosscall(Fn& fn, Fnptr fnptr, const char* funcname) {
     auto [index] = fn.getArguments("index");
     //FIXME: needs symbol name of function for LLVM, that is not exposed...
     auto ret = coat::FunctionCall(fnptr, funcname, index);
@@ -39,7 +39,7 @@ void assemble_crosscall(Fn &fn, Fnptr fnptr, const char *funcname){
 
 
 template<class Fn>
-void assemble_allinone(Fn &fn){
+void assemble_allinone(Fn& fn) {
     // signature of internal function inside generated code
     using internalfunc_t = uint32_t (*)(uint32_t index);
 
@@ -58,7 +58,7 @@ void assemble_allinone(Fn &fn){
     {
         //auto [index] = internalCall.getArguments("index");
         auto args = internalCall.getArguments("index");
-        auto &index = std::get<0>(args);
+        auto& index = std::get<0>(args);
         coat::if_then_else(index < 2, [&]{
             coat::ret(index);
         }, [&]{
@@ -72,9 +72,9 @@ void assemble_allinone(Fn &fn){
 
 #ifdef ENABLE_LLVMJIT
 template<typename F>
-static void verifyAndOptimize(F &function, const char *fname1, const char *fname2){
+static void verifyAndOptimize(F& function, const char* fname1, const char* fname2) {
     function.printIR(fname1);
-    if(!function.verify()){
+    if(!function.verify()) {
         puts("verification failed. aborting.");
         exit(EXIT_FAILURE); //FIXME: better error handling
     }
@@ -83,8 +83,8 @@ static void verifyAndOptimize(F &function, const char *fname1, const char *fname
 }
 #endif
 
-int main(int argc, char *argv[]){
-    if(argc < 2){
+int main(int argc, char *argv[]) {
+    if(argc < 2) {
         puts("argument required: index in fibonacci sequence");
         return -1;
     }

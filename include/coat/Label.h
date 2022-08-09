@@ -9,6 +9,8 @@ struct Label final {
 
     Label() : label(_CC.newLabel()) {}
 
+    NONCOPYABLE(Label);
+
     void bind() {
         _CC.bind(label);
     }
