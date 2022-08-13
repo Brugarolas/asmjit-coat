@@ -360,10 +360,11 @@ struct Vec<float, width> final {
     }
     Vec(const Vec& other) : Vec() {
         if constexpr(std::is_same_v<reg_type,asmjit::x86::Xmm>)
-            _CC.movdqu(reg, other.reg);
+            _CC.movaps(reg, other.reg);
         else
-            _CC.vmovdqu(reg, other.reg);
+            _CC.vmovaps(reg, other.reg);
     }
+    Vec(Vec&& other) : reg(other.reg) {}
     Vec(reg_type reg) : reg(reg) {}
 
     Vec& operator=(float v) {
@@ -392,9 +393,9 @@ struct Vec<float, width> final {
     Vec& operator=(Ref<Value<T>>&& src) { load(std::move(src)); return *this; }
     Vec& operator=(const Vec& other) {
         if constexpr(std::is_same_v<reg_type,asmjit::x86::Xmm>)
-            _CC.movdqu(reg, other.reg);
+            _CC.movaps(reg, other.reg);
         else
-            _CC.vmovdqu(reg, other.reg);
+            _CC.vmovaps(reg, other.reg);
         return *this;
     }
 
@@ -408,21 +409,21 @@ struct Vec<float, width> final {
                 _CC.shufps(reg, reg, 0);
             } else {
                 src.mem.setSize(16); // change to xmmword
-                _CC.movdqu(reg, src);
+                _CC.movups(reg, src);
             }
         } else if constexpr(std::is_same_v<reg_type,asmjit::x86::Ymm>) {
             if (broadcast) {
                 _CC.vbroadcastss(reg, src);
             } else {
                 src.mem.setSize(32); // change to ymmword
-                _CC.vmovdqu(reg, src);
+                _CC.vmovups(reg, src);
             }
         } else {
             if (broadcast) {
                 _CC.vbroadcastss(reg, src);
             } else {
                 src.mem.setSize(64); // change to zmmword
-                _CC.vmovdqu(reg, src);
+                _CC.vmovups(reg, src);
             }
         }
     }
@@ -434,21 +435,21 @@ struct Vec<float, width> final {
                 _CC.shufps(reg, reg, 0);
             } else {
                 src.mem.setSize(16); // change to xmmword
-                _CC.movdqu(reg, src);
+                _CC.movups(reg, src);
             }
         } else if constexpr(std::is_same_v<reg_type,asmjit::x86::Ymm>) {
             if (broadcast) {
                 _CC.vbroadcastss(reg, src);
             } else {
                 src.mem.setSize(32); // change to ymmword
-                _CC.vmovdqu(reg, src);
+                _CC.vmovups(reg, src);
             }
         } else {
             if (broadcast) {
                 _CC.vbroadcastss(reg, src);
             } else {
                 src.mem.setSize(64); // change to zmmword
-                _CC.vmovdqu(reg, src);
+                _CC.vmovups(reg, src);
             }
         }
     }
@@ -458,28 +459,28 @@ struct Vec<float, width> final {
         if constexpr(std::is_same_v<reg_type,asmjit::x86::Xmm>) {
             // 128 bit SSE
             dest.mem.setSize(16); // change to xmmword
-            _CC.movdqu(dest, reg);
+            _CC.movups(dest, reg);
         } else if constexpr(std::is_same_v<reg_type,asmjit::x86::Ymm>) {
             // 256 bit AVX
             dest.mem.setSize(32); // change to ymmword
-            _CC.vmovdqu(dest, reg);
+            _CC.vmovups(dest, reg);
         } else {
             dest.mem.setSize(64); // change to zmmword
-            _CC.vmovdqu(dest, reg);            
+            _CC.vmovups(dest, reg);            
         }
     }
     void store(Ref<Value<int8_t>>&& dest) const {
         if constexpr(std::is_same_v<reg_type,asmjit::x86::Xmm>) {
             // 128 bit SSE
             dest.mem.setSize(16); // change to xmmword
-            _CC.movdqu(dest, reg);
+            _CC.movups(dest, reg);
         } else if constexpr(std::is_same_v<reg_type,asmjit::x86::Ymm>) {
             // 256 bit AVX
             dest.mem.setSize(32); // change to ymmword
-            _CC.vmovdqu(dest, reg);
+            _CC.vmovups(dest, reg);
         } else {
             dest.mem.setSize(64); // change to zmmword
-            _CC.vmovdqu(dest, reg);            
+            _CC.vmovups(dest, reg);            
         }
     }    
     void load_aligned(Ref<Value<T>>&& src, bool broadcast = false) {
