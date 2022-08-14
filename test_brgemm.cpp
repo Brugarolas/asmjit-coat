@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <memory>
 #include <chrono>
+#include <iostream>
 
 #include <coat/Function.h>
 #include <coat/ControlFlow.h>
@@ -11,7 +12,7 @@
 
 using namespace std::chrono;
 
-#define ENABLE_DUMP 1
+#define ENABLE_DUMP 0
 
 ////////////////////////////////////////////////////
 // post ops setting params, interface
@@ -240,175 +241,6 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
 //using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
 using func_t = void (*)(float* a, float* b, float* c, JitPostOps* param);
 template <unsigned width>
-func_t make_matmul(int M, int N, int K, int lda, int ldb, int ldc, PostOps* post_ops_param) {
-    // initialize backend, AsmJit in this case
-    // context object representing the generated function
-    auto fn = coat::createFunction<func_t>();
-    if constexpr (width == 16)
-        fn.funcNode->frame().setAvx512Enabled();
-    else if  constexpr (width == 8)
-        fn.funcNode->frame().setAvxEnabled();
-#if ENABLE_DUMP
-    fn.enableCodeDump();
-#endif
-    {
-        auto [a, b, c, jit_post_ops_param] = fn.getArguments("a", "b", "c", "ops");
-        jit_memset0<width>(c.cast<int8_t>(), M * N * (int)sizeof(float));
-        coat::Vec<float, width> regCi0, regCi1;
-        coat::Vec<float, width> regA0i0, regA0i1, regB0;
-        coat::Vec<float, width> regA1i0, regA1i1, regB1;
-        coat::Vec<float, width> regA2i0, regA2i1, regB2;
-        coat::Vec<float, width> regA3i0, regA3i1, regB3;
-        JitInjectPostOps inject_postops_param;
-        using share_p = std::shared_ptr<coat::Ptr<coat::Value<float>>>;
-        std::vector<share_p> post_ops_addrs;
-        for (auto i = 0; i < post_ops_param->num; i++) {
-            if (post_ops_param->ops[i].alg_type >= AlgType::Add) {
-                auto params = jit_post_ops_param.get_value<JitPostOps::member_params>("params");
-                auto addr = params[i].get_value<JitParam::member_right_addr>("addr");
-                // TODO: ptr has no 'operator= addr'
-                auto op = std::make_shared<share_p::element_type>(addr);
-                post_ops_addrs.push_back(op);
-            } else {
-                auto op = std::make_shared<share_p::element_type>();
-                post_ops_addrs.push_back(op);
-            }
-        }
-
-        auto prepare_inject_param = [&] (const coat::Value<int>& n, int vec_num) {
-            for (auto i = 0; i < post_ops_param->num; i++) {
-                if (post_ops_param->ops[i].alg_type >= AlgType::Add && post_ops_param->ops[i].binary_param.layout != BinaryDataLayout::PerTensor) {
-                    auto& ptr = *post_ops_addrs[i];
-                    inject_postops_param.params[i].right_addrs.clear();
-                    inject_postops_param.params[i].layout = post_ops_param->ops[i].binary_param.layout;
-                    for (int j = 0; j < vec_num; j++)
-                        inject_postops_param.params[i].right_addrs.push_back(ptr.index(n, width * 0 * sizeof(float)));
-                }
-            }
-        };
-
-        coat::Value i(int(0), "i");
-        auto m_a = a;
-        auto m_c = c;
-        //for (i = 0; i < params_c.m / 4 * 4; i += 4) {
-        coat::for_loop(i < M, [&] {
-                i += 2;
-                m_a += 2 * lda / sizeof(float);
-                m_c += 2 * ldc / sizeof(float);
-            },
-            [&] {
-            coat::Value<int> p(int(0), "p");
-            auto m_b = b;
-            auto p_a = m_a;
-            //for (p = 0; p < params_c.k; p += 4) { // TODO: handle tail
-            coat::for_loop(p < K,
-                [&] {
-                        p += 4;
-                        m_b += 4 * ldb / sizeof(float);
-                        p_a += 4;
-                    },
-                [&] {
-                regA0i0.load(p_a[0], true);
-                regA1i0.load(p_a[1], true);
-                regA2i0.load(p_a[2], true);
-                regA3i0.load(p_a[3], true);
-                regA0i1.load(p_a[0 + 1 * lda / sizeof(float)], true);
-                regA1i1.load(p_a[1 + 1 * lda / sizeof(float)], true);
-                regA2i1.load(p_a[2 + 1 * lda / sizeof(float)], true);
-                regA3i1.load(p_a[3 + 1 * lda / sizeof(float)], true);
-                coat::Value<int> j(int(0), "j");
-                //for (j = 0; j < params_c.n; j += width) { // TODO: handle tail
-                coat::for_loop(j < N, [&] { j += width; }, [&] {
-                    regCi0.load(m_c.index(j, 0));
-                    regCi1.load(m_c.index(j, 1 * ldc));
-
-                    regB0.load(m_b.index(j, 0));
-                    regB1.load(m_b.index(j, 1 * ldb));
-                    regB2.load(m_b.index(j, 2 * ldb));
-                    regB3.load(m_b.index(j, 3 * ldb));
-                    coat::Vec<float, width> tmp0(regA0i0);
-                    coat::Vec<float, width> tmp1(regA1i0);
-                    tmp0 *= regB0;
-                    tmp1 *= regB1;
-                    regCi0 += tmp0;
-                    regCi0 += tmp1;
-                    tmp0 = regA2i0;
-                    tmp1 = regA3i0;
-                    tmp0 *= regB2;
-                    tmp1 *= regB3;
-                    regCi0 += tmp0;
-                    regCi0 += tmp1;
-                    // regCi0 += (regA0i0 * regB0 + regA1i0 * regB1) + 
-                    //         (regA2i0 * regB2 + regA3i0 * regB3);
-                    tmp0 = regA0i1;
-                    tmp1 = regA1i1;
-                    tmp0 *= regB0;
-                    tmp1 *= regB1;
-                    regCi1 += tmp0;
-                    regCi1 += tmp1;
-                    tmp0 = regA2i1;
-                    tmp1 = regA3i1;
-                    tmp0 *= regB2;
-                    tmp1 *= regB3;
-                    regCi1 += tmp0;
-                    regCi1 += tmp1;
-                    // regCi1 += (regA0i1 * regB0 + regA1i1 * regB1) + 
-                    //         (regA2i1 * regB2 + regA3i1 * regB3);
-                    regCi0.store(m_c.index(j, 0));
-                    regCi1.store(m_c.index(j, 1 * ldc));
-                });
-            });
-        });
-        /*for (; i < params_c.m; i++) {
-            for (p = 0; p < params_c.k; p += 4) { // TODO: handle tail
-                regA0i0 = b_t<Type, Arch>(A(i, p + 0));
-                regA1i0 = b_t<Type, Arch>(A(i, p + 1));
-                regA2i0 = b_t<Type, Arch>(A(i, p + 2));
-                regA3i0 = b_t<Type, Arch>(A(i, p + 3));
-                for (j = 0; j < params_c.n; j += inc) { // TODO: handle tail
-                    ptrC0 =& C(i, j);
-                    regCi0 = b_t<Type, Arch>::load(ptrC0, xsimd::unaligned_mode());
-                    regB0 = b_t<Type, Arch>::load(&B(p + 0, j), xsimd::unaligned_mode());
-                    regB1 = b_t<Type, Arch>::load(&B(p + 1, j), xsimd::unaligned_mode());
-                    regB2 = b_t<Type, Arch>::load(&B(p + 2, j), xsimd::unaligned_mode());
-                    regB3 = b_t<Type, Arch>::load(&B(p + 3, j), xsimd::unaligned_mode());
-                    regCi0 += regA0i0 * regB0 + regA1i0 * regB1 + 
-                            regA2i0 * regB2 + regA3i0 * regB3;
-                    regCi0.store_unaligned(ptrC0);
-                }
-            }
-        }*/
-
-        // inject binary postops
-        m_c = c;
-        i = 0;
-        //for (i = 0; i < params_c.m / 4 * 4; i += 4) {
-        coat::for_loop(i < M, [&] {
-                i += 2;
-                m_c += 2 * ldc / sizeof(float);
-            },
-            [&] {
-            coat::Value<int> j(int(0), "j");
-            //for (j = 0; j < params_c.n; j += width) { // TODO: handle tail
-            coat::for_loop(j < N, [&] { j += width; }, [&] {
-                regCi0.load(m_c.index(j, 0));
-                regCi1.load(m_c.index(j, 1 * ldc));
-                prepare_inject_param(j, 2);
-                inject_postops<width>({& regCi0,& regCi1 }, post_ops_param,& inject_postops_param);
-                regCi0.store(m_c.index(j, 0));
-                regCi1.store(m_c.index(j, 1 * ldc));
-            });
-        });
-        // specify return value
-        coat::ret();
-    }
-
-    // finalize code generation and get function pointer to the generated function
-    func_t foo = fn.finalize();
-    return foo;
-}
-
-template <unsigned width>
 func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
     auto fn = coat::createFunction<func_t>();
     if constexpr (width == 16)
@@ -524,10 +356,17 @@ func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
     return foo;
 }
 
-/*
+// typical convolution layout
+// a: aBcd16b
+// b: OIhw16i16o
+// c: aBcd16b
+// for gemm:
+// a: Km16k
+// b: Nk16n
+// c: Mn16M
 template <unsigned width>
-nhwc_func_t make_nchw_access(int N, int IC, int OC, int H, int W) {
-    auto fn = coat::createFunction<nhwc_func_t>();
+func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
+    auto fn = coat::createFunction<func_t>();
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
     else if  constexpr (width == 8)
@@ -535,48 +374,65 @@ nhwc_func_t make_nchw_access(int N, int IC, int OC, int H, int W) {
 #if ENABLE_DUMP
     fn.enableCodeDump();
 #endif
-     {
-        auto [j_a, j_b, j_c] = fn.getArguments("a", "b", "c");
-        coat::Vec<float, width> j_weight[3];
-        coat::Vec<float, width> j_result[3 * 8];
+    {
+        lda /= sizeof(float);
+        ldb /= sizeof(float);
+        ldc /= sizeof(float);
+        auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
+        const int oc_num = 3;
+        const int ur_num = 8; // hardcode 8 rows
+        using share_vec = std::shared_ptr<coat::Vec<float, width>>;
+        std::vector<share_vec> j_weight(oc_num);
+        std::vector<share_vec> j_result;
+        for (int i = 0; i < oc_num; i++ ) {
+            j_weight[i] = std::make_shared<share_vec::element_type>();
+        }
+        for (int i = 0; i < oc_num * ur_num; i++ ) {
+            j_result.push_back(std::make_shared<share_vec::element_type>());
+        }
         coat::Vec<float, width> j_data;
 
-        coat::Value j_n(int(0), "n");
-        //for (n = 0; n < N; n++) {
-        coat::for_loop(j_n < N, [&] {
-                j_n += 1;
-                //j_a += N * H * W * IC;
-                j_c += 1 * H * W * OC;
-            },
+        coat::Value<int> j_m(int(0), "m");
+        //for (m = 0; m < M; m += 8) {
+        coat::for_loop(j_m < M / ur_num * ur_num,
             [&] {
-            coat::Value<int> j_w(int(0), "w");
-            //for (w = 0; w < W; w += 16) {
-            coat::for_loop(j_w < W,
+                    j_m += ur_num;
+                    j_a += ur_num * lda;
+                    j_c += ur_num * ldc;
+                },
+            [&] {
+            for (int i = 0; i < oc_num * ur_num; i++ ) {
+                (*j_result[i]) = 0;
+            }
+            coat::Value<int> j_k(int(0), "k");
+            auto j_b_row = j_b;
+            auto j_a_row = j_a;
+            //for (k = 0; k < K; k += width) {
+            coat::for_loop(j_k < K, // TODO handle tail
                 [&] {
-                        j_w += 8; // hardcode 8 rows
-                        j_a += 8 * width;
+                        j_k += width;
+                        j_b_row += width * ldb;
+                        j_a_row += width * M;
                     },
                 [&] {
-                coat::Value<int> j_k(int(0), "k");
-                auto j_weight_row = j_weight;
-                auto j_b_row = j_b;
-                //for (k = 0; k < K; k += width) {
-                coat::for_loop(j_k < IC,
-                    [&] {
-                            j_k += width;
-                        },
-                    [&] {
-                    for (int j = 0; j < width; j++) {
-                        j_weight_row[0].load(j_b_row[0]);
-                        j_weight_row[1].load(j_b_row[width * IC]);
-                        j_weight_row[2].load(j_b_row[width * 2 * IC]);
-                        j_b_row += 3 * width;
-                        for (int i = 0; i < 8; i++) {
-                            j_data.load(j_a[i * width + j], true);
+                for (int j = 0; j < width; j++) {
+                    for (int n = 0; n < oc_num; n++) {
+                        j_weight[n]->load(j_b_row[j * ldb + n * width * K]);
+                    }
+                    for (int m = 0; m < ur_num; m++) {
+                        j_data.load(j_a_row[m * lda + j], true);
+                        for (int n = 0; n < oc_num; n++) {
+                            j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
                         }
                     }
-                });
+                }
             });
+
+            for (int m = 0; m < ur_num; m++) {
+                for (int n = 0; n < oc_num; n++) {
+                    j_result[m * oc_num + n]->store(j_c[m * ldc + n * width * M]);
+                }
+            }
         });
 
         // specify return value
@@ -587,10 +443,10 @@ nhwc_func_t make_nchw_access(int N, int IC, int OC, int H, int W) {
     auto foo = fn.finalize();
     return foo;
 }
-*/
-void test_matmul() {
+
+void test_brgemm() {
     int M, N, K;
-    M = 256, N = 48, K = 288;
+    M = 25600, N = 48, K = 288;
     // postops, perchannel
     std::vector<float> d(N, 0);
     std::iota(d.begin(), d.end(), 0.0f);
@@ -608,13 +464,92 @@ void test_matmul() {
     JitPostOps ops;
     ops.params[1].right_addr = d.data();
     f(a.data(), b.data(), c.data(), nullptr);
+    auto beg = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 100; i++)
+        f(a.data(), b.data(), c.data(), nullptr);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
+    std::cout << "nhwc cost " << diff / 1000.0f << " ms" << std::endl;    
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
     if(c == c_ref) {
         printf("correct \n");
     } else {
         bool error = false;
         for (int i = 0; i < (int)c.size(); i++) {
-            if (std::abs(c[i] - c_ref[i]) > 0.0001f * std::abs(c[i])) {
+            if (std::abs(c[i] - c_ref[i]) > 0.00001f * std::abs(c[i])) {
+                error = true;
+                printf("first error at %d, cur %f ref %f\n", i, c[i], c_ref[i]);
+                break;
+            }
+        }
+        if (error)
+            printf("wrong result\n");
+        else
+            printf("correct with minor error\n");
+    }
+    coat::getJitRuntimeEnv().release_func(f);
+}
+
+void reorder_nhwc2block(const std::vector<float>& in, std::vector<float>& out, int m, int n, int stride) {
+    out.resize(in.size());
+    for (int i = 0; i < n / stride; i++) {
+        for (int j = 0; j < m; j++) {
+            for (int x = 0; x < stride; x++) {
+                out[i * m * stride + j * stride + x] = in[i * stride + x + j * n];
+            }
+        }
+    }
+}
+
+void reorder_block2nhwc(const std::vector<float>& in, std::vector<float>& out, int m, int n, int stride) {
+    out.resize(in.size());
+    for (int j = 0; j < m; j++) {
+        for (int i = 0; i < n / stride; i++) {
+            for (int x = 0; x < stride; x++) {
+                out[i * stride + x + j * n] = in[i * m * stride + j * stride + x];
+            }
+        }
+    }
+}
+
+void test_block() {
+    int M, N, K;
+    M = 25600, N = 48, K = 288;
+    // postops, perchannel
+    std::vector<float> d(N, 0);
+    std::iota(d.begin(), d.end(), 0.0f);
+
+    std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
+    std::iota(a.begin(), a.end(), 1.0f);
+    std::iota(b.begin(), b.end(), 2.0f);
+
+    PostOps post_ops;
+    post_ops.num = 0;
+    post_ops.ops[0].alg_type = AlgType::Abs;
+    post_ops.ops[1].alg_type = AlgType::Add;
+    post_ops.ops[1].binary_param.layout = BinaryDataLayout::PerChannel;
+    auto f = make_block<16>(M, N, K, 16 * 4, 16 * 4, 16 * 4);
+    JitPostOps ops;
+    ops.params[1].right_addr = d.data();
+    std::vector<float> a_block, b_block, c_block(M * N);
+    reorder_nhwc2block(a, a_block, M, K, 16);
+    reorder_nhwc2block(b, b_block, K, N, 16);
+    f(a_block.data(), b_block.data(), c_block.data(), nullptr);
+    auto beg = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 100; i++)
+        f(a_block.data(), b_block.data(), c_block.data(), nullptr);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
+    std::cout << "block cost " << diff / 1000.0f << " ms" << std::endl;
+
+    reorder_block2nhwc(c_block, c, M, N, 16);
+    matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
+    if(c == c_ref) {
+        printf("correct \n");
+    } else {
+        bool error = false;
+        for (int i = 0; i < (int)c.size(); i++) {
+            if (std::abs(c[i] - c_ref[i]) > 0.00001f * std::abs(c[i])) {
                 error = true;
                 printf("first error at %d, cur %f ref %f\n", i, c[i], c_ref[i]);
                 break;
@@ -629,5 +564,6 @@ void test_matmul() {
 }
 
 int main() {
-    test_matmul();
+    test_brgemm();
+    test_block();
 }
