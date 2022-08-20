@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <type_traits>
 #include "Global.h"
+#include <perf-util/jit_utils/jit_utils.hpp>
 #ifdef PROFILING_SOURCE
 #    include <asmjit-utilities/perf/perfcompiler.h>
 #endif
@@ -133,6 +134,7 @@ struct Function<R(*)(Args...)> {
             fprintf(stderr, "runtime add failed with CodeCompiler\n");
             std::exit(1);
         }
+        dnnl::impl::cpu::jit_utils::register_jit_code((void*)fn, code.codeSize(), funcName, __FILE__);
         // dump generated code for profiling with perf
 #if defined(PROFILING_ASSEMBLY) || defined(PROFILING_SOURCE)
         getJitRuntimeEnv().rt.jd.addCodeSegment(funcName, (void*)fn, code.codeSize());

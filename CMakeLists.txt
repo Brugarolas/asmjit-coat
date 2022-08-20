@@ -8,7 +8,7 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS) Debug Release RelWithdebInfo MinSizeRel.")
 endif()
 
-project(coat CXX)
+project(coat)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,6 +46,26 @@ if(ENABLE_ASMJIT)
 	include_directories(${ASMJIT_PERF_INCLUDE_DIR})
 endif()
 
+find_path(PERF_INCLUDE_DIR
+	perf-util/jit_utils/jit_utils.hpp
+	HINTS external/
+)
+if (WIN32)
+	find_library(PERF_LIBRARIES
+		perf-util
+		HINTS external/
+		PATH_SUFFIXES perf-util/build/RelWithDebInfo
+	)
+else()
+	find_library(PERF_LIBRARIES
+		perf-util
+		HINTS external/
+		PATH_SUFFIXES perf-util/build/
+	)
+endif()
+
+include_directories(${PERF_INCLUDE_DIR})
+
 if(ENABLE_LLVMJIT)
 	# find llvm, quick&dirty
 	find_path(LLVM_INCLUDE_DIR
@@ -61,6 +81,7 @@ if(ENABLE_LLVMJIT)
 	include_directories(${LLVM_INCLUDE_DIR})
 endif()
 
+set(COMMONLIB ${CMAKE_DL_LIBS})
 
 # debugging options
 if(NOT DEFINED PROFILING)
@@ -75,11 +96,7 @@ endif()
 add_executable(tests tests.cpp)
 if(ENABLE_ASMJIT)
 	target_compile_definitions(tests PRIVATE "ENABLE_ASMJIT")
-	target_link_libraries(tests ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
-endif()
-if(ENABLE_LLVMJIT)
-	target_compile_definitions(tests PRIVATE "ENABLE_LLVMJIT")
-	target_link_libraries(tests ${LLVM_LIBRARIES})
+	target_link_libraries(tests ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})
 endif()
 
 enable_testing()
@@ -94,33 +111,28 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/examples)
 # 	target_compile_definitions(calculator PRIVATE "ENABLE_LLVMJIT")
 # 	target_link_libraries(calculator ${LLVM_LIBRARIES})
 # endif()
-
 add_executable(fibonacci fibonacci.cpp)
 if(ENABLE_ASMJIT)
 	target_compile_definitions(fibonacci PRIVATE "ENABLE_ASMJIT")
-	target_link_libraries(fibonacci ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
-endif()
-if(ENABLE_LLVMJIT)
-	target_compile_definitions(fibonacci PRIVATE "ENABLE_LLVMJIT")
-	target_link_libraries(fibonacci ${LLVM_LIBRARIES})
+	target_link_libraries(fibonacci ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})
 endif()
 
 add_executable(test_float test_float.cpp)
 target_compile_definitions(test_float PRIVATE "ENABLE_ASMJIT")
-target_link_libraries(test_float ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+target_link_libraries(test_float ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})
 
 add_executable(test_vecf test_vecf.cpp)
 target_compile_definitions(test_vecf PRIVATE "ENABLE_ASMJIT")
-target_link_libraries(test_vecf ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+target_link_libraries(test_vecf ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})
 
 add_executable(test_struct test_struct.cpp)
 target_compile_definitions(test_struct PRIVATE "ENABLE_ASMJIT")
-target_link_libraries(test_struct ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+target_link_libraries(test_struct ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})
 
 add_executable(matmul matmul.cpp)
 target_compile_definitions(matmul PRIVATE "ENABLE_ASMJIT")
-target_link_libraries(matmul ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+target_link_libraries(matmul ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})
 
 add_executable(test_brgemm test_brgemm.cpp)
 target_compile_definitions(test_brgemm PRIVATE "ENABLE_ASMJIT")
-target_link_libraries(test_brgemm ${ASMJIT_LIBRARIES} ${ASMJIT_PERF_LIBRARIES})
+target_link_libraries(test_brgemm ${ASMJIT_LIBRARIES} ${PERF_LIBRARIES} ${COMMONLIB})

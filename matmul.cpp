@@ -101,7 +101,7 @@ void inject_postops(std::vector<coat::Vec<float, width>*> vecs, PostOps* ops_par
             std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
                 tmp = -0.f;
                 tmp -= *vec;
-                vec->max(tmp);
+                vec->max_(tmp);
             });
             break;
         }

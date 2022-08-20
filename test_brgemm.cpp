@@ -9,12 +9,22 @@
 #include <coat/Function.h>
 #include <coat/ControlFlow.h>
 #include <coat/Vec.h>
+#include <immintrin.h>
+#include <xmmintrin.h>
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
+void init_fp_mode() {
+    // We set ftz to avoid denormals in perf measurements
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+}
 using namespace std::chrono;
 
 #define ENABLE_DUMP 0
 
 ////////////////////////////////////////////////////
+namespace Jit {
 // post ops setting params, interface
 enum class AlgType {
     // Unary: x = f(x)
@@ -105,7 +115,7 @@ void inject_postops(std::vector<coat::Vec<float, width>*> vecs, PostOps* ops_par
             std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
                 tmp = -0.f;
                 tmp -= *vec;
-                vec->max(tmp);
+                vec->max_(tmp);
             });
             break;
         }
@@ -221,6 +231,7 @@ void jit_memset0(coat::Ptr<coat::Value<int8_t>> p, int size) {
         }
     }
 }
+}
 
 static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc) {
 #define A(i, j) a[(j) + (i) * lda]
@@ -237,12 +248,12 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
         }
     }
 }
-
+#define ROWS 8
 //using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
-using func_t = void (*)(float* a, float* b, float* c, JitPostOps* param);
+using func_t = void (*)(float* a, float* b, float* c, Jit::JitPostOps* param);
 template <unsigned width>
 func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
-    auto fn = coat::createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>("brgemm");
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
     else if  constexpr (width == 8)
@@ -256,15 +267,15 @@ func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
         ldc /= sizeof(float);
         auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
         const int oc_num = 3;
-        const int ur_num = 8; // hardcode 8 rows
+        const int ur_num = ROWS; // hardcode 8 rows
         using share_vec = std::shared_ptr<coat::Vec<float, width>>;
         std::vector<share_vec> j_weight(oc_num);
         std::vector<share_vec> j_result;
         for (int i = 0; i < oc_num; i++ ) {
-            j_weight[i] = std::make_shared<share_vec::element_type>();
+            j_weight[i] = std::make_shared<coat::Vec<float, width>>();
         }
         for (int i = 0; i < oc_num * ur_num; i++ ) {
-            j_result.push_back(std::make_shared<share_vec::element_type>());
+            j_result.push_back(std::make_shared<coat::Vec<float, width>>());
         }
         coat::Vec<float, width> j_data;
 
@@ -283,26 +294,46 @@ func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
             coat::Value<int> j_k(int(0), "k");
             auto j_b_row = j_b;
             auto j_a_row = j_a;
-            //for (k = 0; k < K; k += width) {
-            coat::for_loop(j_k < K, // TODO handle tail
-                [&] {
-                        j_k += width;
-                        j_b_row += width * ldb;
-                        j_a_row += width;
-                    },
-                [&] {
+            auto fma = [&](bool last_block) {
                 for (int j = 0; j < width; j++) {
                     for (int n = 0; n < oc_num; n++) {
                         j_weight[n]->load(j_b_row[j * ldb + n * width]);
                     }
                     for (int m = 0; m < ur_num; m++) {
                         j_data.load(j_a_row[m * lda + j], true);
+                        if (j == 0) {
+                            if (last_block == false)
+                                _CC.prefetcht0(j_a_row[m * lda + width]);
+                                //j_data.load(j_a_row[m * lda + width], true);
+                                //_CC.mov(tmp.reg, j_a_row[m * lda + width].mem);
+                            else
+                                _CC.prefetcht0(j_a[(m + ur_num) * lda]);
+                                // j_data.load(j_a[(m + ur_num) * lda], true);
+                                ; //_CC.mov(tmp.reg, j_a[(m + ur_num) * lda].mem);
+                        }
                         for (int n = 0; n < oc_num; n++) {
                             j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
                         }
                     }
                 }
+            };
+            for (int y = 0; y < 0; y++) {
+                fma(false);
+                j_k += width;
+                j_b_row += width * ldb;
+                j_a_row += width;
+            }
+            //for (k = 0; k < K; k += width) {
+            coat::for_loop(j_k < K - width, // TODO handle tail
+                [&] {
+                        j_k += width;
+                        j_b_row += width * ldb;
+                        j_a_row += width;
+                    },
+                [&] {
+                fma(false);
             });
+            fma(true);
 
             for (int m = 0; m < ur_num; m++) {
                 for (int n = 0; n < oc_num; n++) {
@@ -366,7 +397,7 @@ func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
 // c: Mn16M
 template <unsigned width>
 func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
-    auto fn = coat::createFunction<func_t>();
+    auto fn = coat::createFunction<func_t>("block");
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
     else if  constexpr (width == 8)
@@ -380,15 +411,15 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
         ldc /= sizeof(float);
         auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
         const int oc_num = 3;
-        const int ur_num = 8; // hardcode 8 rows
+        const int ur_num = ROWS; // hardcode 8 rows
         using share_vec = std::shared_ptr<coat::Vec<float, width>>;
         std::vector<share_vec> j_weight(oc_num);
         std::vector<share_vec> j_result;
         for (int i = 0; i < oc_num; i++ ) {
-            j_weight[i] = std::make_shared<share_vec::element_type>();
+            j_weight[i] = std::make_shared<coat::Vec<float, width>>();
         }
         for (int i = 0; i < oc_num * ur_num; i++ ) {
-            j_result.push_back(std::make_shared<share_vec::element_type>());
+            j_result.push_back(std::make_shared<coat::Vec<float, width>>());
         }
         coat::Vec<float, width> j_data;
 
@@ -399,34 +430,42 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
                     j_m += ur_num;
                     j_a += ur_num * lda;
                     j_c += ur_num * ldc;
-                },
+            },
             [&] {
-            for (int i = 0; i < oc_num * ur_num; i++ ) {
+            for (int i = 0; i < oc_num * ur_num; i++) {
                 (*j_result[i]) = 0;
             }
             coat::Value<int> j_k(int(0), "k");
             auto j_b_row = j_b;
             auto j_a_row = j_a;
-            //for (k = 0; k < K; k += width) {
-            coat::for_loop(j_k < K, // TODO handle tail
-                [&] {
-                        j_k += width;
-                        j_b_row += width * ldb;
-                        j_a_row += width * M;
-                    },
-                [&] {
+            auto fma = [&](bool last_block) {
                 for (int j = 0; j < width; j++) {
                     for (int n = 0; n < oc_num; n++) {
                         j_weight[n]->load(j_b_row[j * ldb + n * width * K]);
                     }
                     for (int m = 0; m < ur_num; m++) {
                         j_data.load(j_a_row[m * lda + j], true);
+                        if (j == 0) {
+                            _CC.prefetcht0(j_a_row[m * lda + width * M]);
+                        }
                         for (int n = 0; n < oc_num; n++) {
                             j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
                         }
                     }
                 }
+            };
+
+            //for (k = 0; k < K; k += width) {
+            coat::for_loop(j_k < K - width, // TODO handle tail
+                [&] {
+                        j_k += width;
+                        j_b_row += width * ldb;
+                        j_a_row += width * M;
+                    },
+                [&] {
+                fma(false);
             });
+            fma(true);
 
             for (int m = 0; m < ur_num; m++) {
                 for (int n = 0; n < oc_num; n++) {
@@ -444,9 +483,16 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
     return foo;
 }
 
-void test_brgemm() {
-    int M, N, K;
-    M = 25600, N = 48, K = 288;
+void do_test(const char* name, func_t f, float* a, float* b, float* c) {
+    auto beg = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 10; i++)
+        f(a, b, c, nullptr);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
+    std::cout << name << " cost " << diff / 1000.0f << " ms" << std::endl;
+}
+
+void test_brgemm(int M, int N, int K) {
     // postops, perchannel
     std::vector<float> d(N, 0);
     std::iota(d.begin(), d.end(), 0.0f);
@@ -455,21 +501,19 @@ void test_brgemm() {
     std::iota(a.begin(), a.end(), 1.0f);
     std::iota(b.begin(), b.end(), 2.0f);
 
-    PostOps post_ops;
+    Jit::PostOps post_ops;
     post_ops.num = 0;
-    post_ops.ops[0].alg_type = AlgType::Abs;
-    post_ops.ops[1].alg_type = AlgType::Add;
-    post_ops.ops[1].binary_param.layout = BinaryDataLayout::PerChannel;
+    post_ops.ops[0].alg_type = Jit::AlgType::Abs;
+    post_ops.ops[1].alg_type = Jit::AlgType::Add;
+    post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
     auto f = make_brgemm<16>(M, N, K, K * 4, N * 4, N * 4);
-    JitPostOps ops;
+    Jit::JitPostOps ops;
     ops.params[1].right_addr = d.data();
+    
+    //static _declspec(align(1024)) float xa[2560000*288] = {0};
     f(a.data(), b.data(), c.data(), nullptr);
-    auto beg = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 100; i++)
-        f(a.data(), b.data(), c.data(), nullptr);
-    auto end = std::chrono::high_resolution_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
-    std::cout << "nhwc cost " << diff / 1000.0f << " ms" << std::endl;    
+    //f(a.data(), b.data(), c.data(), nullptr);
+    do_test("brgemm", f, a.data(), b.data(), c.data());
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
     if(c == c_ref) {
         printf("correct \n");
@@ -512,9 +556,7 @@ void reorder_block2nhwc(const std::vector<float>& in, std::vector<float>& out, i
     }
 }
 
-void test_block() {
-    int M, N, K;
-    M = 25600, N = 48, K = 288;
+void test_block(int M, int N, int K) {
     // postops, perchannel
     std::vector<float> d(N, 0);
     std::iota(d.begin(), d.end(), 0.0f);
@@ -523,24 +565,19 @@ void test_block() {
     std::iota(a.begin(), a.end(), 1.0f);
     std::iota(b.begin(), b.end(), 2.0f);
 
-    PostOps post_ops;
+    Jit::PostOps post_ops;
     post_ops.num = 0;
-    post_ops.ops[0].alg_type = AlgType::Abs;
-    post_ops.ops[1].alg_type = AlgType::Add;
-    post_ops.ops[1].binary_param.layout = BinaryDataLayout::PerChannel;
+    post_ops.ops[0].alg_type = Jit::AlgType::Abs;
+    post_ops.ops[1].alg_type = Jit::AlgType::Add;
+    post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
     auto f = make_block<16>(M, N, K, 16 * 4, 16 * 4, 16 * 4);
-    JitPostOps ops;
+    Jit::JitPostOps ops;
     ops.params[1].right_addr = d.data();
     std::vector<float> a_block, b_block, c_block(M * N);
     reorder_nhwc2block(a, a_block, M, K, 16);
     reorder_nhwc2block(b, b_block, K, N, 16);
     f(a_block.data(), b_block.data(), c_block.data(), nullptr);
-    auto beg = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 100; i++)
-        f(a_block.data(), b_block.data(), c_block.data(), nullptr);
-    auto end = std::chrono::high_resolution_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
-    std::cout << "block cost " << diff / 1000.0f << " ms" << std::endl;
+    do_test("block", f, a_block.data(), b_block.data(), c_block.data());
 
     reorder_block2nhwc(c_block, c, M, N, 16);
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
@@ -564,6 +601,15 @@ void test_block() {
 }
 
 int main() {
-    test_brgemm();
-    test_block();
+#ifdef _WIN32
+    SetProcessAffinityMask(GetCurrentProcess(), 1 << 6);
+#endif
+    init_fp_mode();
+    int M, N, K;
+    M = 256000, N = 48, K = 16;
+    for (; K <= 288 * 16; K += 16) {
+        printf("K=%d\n", K);
+        test_block(M, N, K);
+        test_brgemm(M, N, K);
+    }
 }

@@ -586,11 +586,11 @@ struct Vec<float, width> final {
     Vec& operator/=(Ref<Value<T>>&& other) {
         return div(other);
     }
-    Vec& max(const Vec& other) {
+    Vec& max_(const Vec& other) {
         _CC.vmaxps(reg, reg, other.reg);
         return *this;
     }
-    Vec& min(const Vec& other) {
+    Vec& min_(const Vec& other) {
         _CC.vminps(reg, reg, other.reg);
         return *this;
     }
