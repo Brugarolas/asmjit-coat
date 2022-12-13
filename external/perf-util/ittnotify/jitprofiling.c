@@ -1,11 +1,32 @@
 /* <copyright>
+  This file is provided under a dual BSD/GPLv2 license.  When using or
+  redistributing this file, you may do so under either license.
+
+  GPL LICENSE SUMMARY
+
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of version 2 of the GNU General Public License as
+  published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+  The full GNU General Public License is included in this distribution
+  in the file called LICENSE.GPL.
 
   Contact Information:
-  https://software.intel.com/content/www/us/en/develop/tools/vtune-profiler.html
+  http://software.intel.com/en-us/articles/intel-vtune-amplifier-xe/
 
   BSD LICENSE
 
-  Copyright (c) 2005-2014 Intel Corporation. All rights reserved.
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -40,16 +61,14 @@
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #include <windows.h>
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-#if ITT_PLATFORM != ITT_PLATFORM_MAC && ITT_PLATFORM != ITT_PLATFORM_FREEBSD && ITT_PLATFORM != ITT_PLATFORM_OPENBSD
+#if ITT_PLATFORM != ITT_PLATFORM_MAC && ITT_PLATFORM != ITT_PLATFORM_FREEBSD
 #include <malloc.h>
 #endif
 #include <stdlib.h>
 
 #include "jitprofiling.h"
 
-static const char rcsid[] = "\n@(#) $Revision: 471937 $\n";
-
-#define DLL_ENVIRONMENT_VAR             "VS_PROFILER"
+static const char rcsid[] = "\n@(#) $Revision$\n";
 
 #ifndef NEW_DLL_ENVIRONMENT_VAR
 #if ITT_ARCH==ITT_ARCH_IA32
@@ -60,13 +79,10 @@ static const char rcsid[] = "\n@(#) $Revision: 471937 $\n";
 #endif /* NEW_DLL_ENVIRONMENT_VAR */
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
-#define DEFAULT_DLLNAME                 "JitPI.dll"
 HINSTANCE m_libHandle = NULL;
 #elif ITT_PLATFORM==ITT_PLATFORM_MAC
-#define DEFAULT_DLLNAME                 "libJitPI.dylib"
 void* m_libHandle = NULL;
 #else
-#define DEFAULT_DLLNAME                 "libJitPI.so"
 void* m_libHandle = NULL;
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 
@@ -199,30 +215,9 @@ static int loadiJIT_Funcs()
             }
             free(dllName);
         }
-    } else {
-        /* Try to use old VS_PROFILER variable */
-        dNameLength = GetEnvironmentVariableA(DLL_ENVIRONMENT_VAR, NULL, 0);
-        if (dNameLength)
-        {
-            DWORD envret = 0;
-            dllName = (char*)malloc(sizeof(char) * (dNameLength + 1));
-            if(dllName != NULL)
-            {
-                envret = GetEnvironmentVariableA(DLL_ENVIRONMENT_VAR, 
-                                                 dllName, dNameLength);
-                if (envret)
-                {
-                    /* Try to load the dll from the PATH... */
-                    m_libHandle = LoadLibraryA(dllName);
-                }
-                free(dllName);
-            }
-        }
     }
 #else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
     dllName = getenv(NEW_DLL_ENVIRONMENT_VAR);
-    if (!dllName)
-        dllName = getenv(DLL_ENVIRONMENT_VAR);
 #if defined(__ANDROID__) || defined(ANDROID)
     if (!dllName)
         dllName = ANDROID_JIT_AGENT_PATH;
@@ -230,18 +225,12 @@ static int loadiJIT_Funcs()
     if (dllName)
     {
         /* Try to load the dll from the PATH... */
-        m_libHandle = dlopen(dllName, RTLD_LAZY);
+        if (DL_SYMBOLS)
+        {
+            m_libHandle = dlopen(dllName, RTLD_LAZY);
+        }
     }
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-
-    if (!m_libHandle)
-    {
-#if ITT_PLATFORM==ITT_PLATFORM_WIN
-        m_libHandle = LoadLibraryA(DEFAULT_DLLNAME);
-#else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-        m_libHandle = dlopen(DEFAULT_DLLNAME, RTLD_LAZY);
-#endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-    }
 
     /* if the dll wasn't loaded - exit. */
     if (!m_libHandle)

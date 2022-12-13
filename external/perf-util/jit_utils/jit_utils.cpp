@@ -75,6 +75,7 @@ void dump_jit_code(const void *code, size_t code_size, const char *code_name) {
 */
 void register_jit_code_vtune(const void *code, size_t code_size,
         const char *code_name, const char *source_file_name) {
+#ifndef WIN32
     {
         auto jmethod = iJIT_Method_Load();
         jmethod.method_id = iJIT_GetNewMethodID(); // XXX: not thread-safe
@@ -88,6 +89,7 @@ void register_jit_code_vtune(const void *code, size_t code_size,
         iJIT_NotifyEvent(
                 iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, (void *)&jmethod);
     }
+#endif
 }
 
 void register_jit_code_linux_perf(const void *code, size_t code_size,

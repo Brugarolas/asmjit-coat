@@ -14,6 +14,7 @@
 #ifdef _WIN32
 #include <Windows.h>
 #endif
+#include <perf-util/ittnotify/ittnotify.h>
 
 void init_fp_mode() {
     // We set ftz to avoid denormals in perf measurements
@@ -484,9 +485,19 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
 }
 
 void do_test(const char* name, func_t f, float* a, float* b, float* c) {
+#ifndef WIN32
+    __itt_pt_region region = __itt_pt_region_create(name);
+#endif
     auto beg = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 10; i++) {
+#ifndef WIN32
+        __itt_mark_pt_region_begin(region);
         f(a, b, c, nullptr);
+        __itt_mark_pt_region_end(region);
+#else
+        f(a, b, c, nullptr);
+#endif
+    }
     auto end = std::chrono::high_resolution_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::microseconds>(end - beg).count();
     std::cout << name << " cost " << diff / 1000.0f << " ms" << std::endl;
@@ -577,6 +588,7 @@ void test_block(int M, int N, int K) {
     reorder_nhwc2block(a, a_block, M, K, 16);
     reorder_nhwc2block(b, b_block, K, N, 16);
     f(a_block.data(), b_block.data(), c_block.data(), nullptr);
+
     do_test("block", f, a_block.data(), b_block.data(), c_block.data());
 
     reorder_block2nhwc(c_block, c, M, N, 16);
@@ -606,8 +618,8 @@ int main() {
 #endif
     init_fp_mode();
     int M, N, K;
-    M = 256000, N = 48, K = 16;
-    for (; K <= 288 * 16; K += 16) {
+    M = 25600, N = 48, K = 288;
+    for (; K <= 288; K += 16) {
         printf("K=%d\n", K);
         test_block(M, N, K);
         test_brgemm(M, N, K);

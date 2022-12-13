@@ -1,27 +1,32 @@
-/*******************************************************************************
-* Copyright 2020 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*******************************************************************************/
-
 /* <copyright>
+  This file is provided under a dual BSD/GPLv2 license.  When using or
+  redistributing this file, you may do so under either license.
+
+  GPL LICENSE SUMMARY
+
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of version 2 of the GNU General Public License as
+  published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+  The full GNU General Public License is included in this distribution
+  in the file called LICENSE.GPL.
 
   Contact Information:
-  https://software.intel.com/content/www/us/en/develop/tools/vtune-profiler.html
+  http://software.intel.com/en-us/articles/intel-vtune-amplifier-xe/
 
   BSD LICENSE
 
-  Copyright (c) 2005-2014 Intel Corporation. All rights reserved.
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -56,25 +61,26 @@
 
 typedef enum ___itt_group_id
 {
-    __itt_group_none      = 0,
-    __itt_group_legacy    = 1<<0,
-    __itt_group_control   = 1<<1,
-    __itt_group_thread    = 1<<2,
-    __itt_group_mark      = 1<<3,
-    __itt_group_sync      = 1<<4,
-    __itt_group_fsync     = 1<<5,
-    __itt_group_jit       = 1<<6,
-    __itt_group_model     = 1<<7,
-    __itt_group_splitter_min = 1<<7,
-    __itt_group_counter   = 1<<8,
-    __itt_group_frame     = 1<<9,
-    __itt_group_stitch    = 1<<10,
-    __itt_group_heap      = 1<<11,
-    __itt_group_splitter_max = 1<<12,
-    __itt_group_structure = 1<<12,
-    __itt_group_suppress = 1<<13,
-    __itt_group_arrays    = 1<<14,
-    __itt_group_all       = -1
+    __itt_group_none      		= 0,
+    __itt_group_legacy    		= 1<<0,
+    __itt_group_control   		= 1<<1,
+    __itt_group_thread    		= 1<<2,
+    __itt_group_mark      		= 1<<3,
+    __itt_group_sync      		= 1<<4,
+    __itt_group_fsync     		= 1<<5,
+    __itt_group_jit       		= 1<<6,
+    __itt_group_model     		= 1<<7,
+    __itt_group_splitter_min 	= 1<<7,
+    __itt_group_counter   		= 1<<8,
+    __itt_group_frame     		= 1<<9,
+    __itt_group_stitch    		= 1<<10,
+    __itt_group_heap      		= 1<<11,
+    __itt_group_splitter_max 	= 1<<12,
+    __itt_group_structure 		= 1<<12,
+    __itt_group_suppress 		= 1<<13,
+    __itt_group_arrays    		= 1<<14,
+    __itt_group_module    		= 1<<15,
+    __itt_group_all       		= -1
 } __itt_group_id;
 
 #pragma pack(push, 8)
@@ -104,6 +110,7 @@ typedef struct ___itt_group_list
         { __itt_group_structure, "structure" }, \
         { __itt_group_suppress,  "suppress"  }, \
         { __itt_group_arrays,    "arrays"    }, \
+		{ __itt_group_module,    "module"    }, \
         { __itt_group_none,      NULL        }  \
     }
 

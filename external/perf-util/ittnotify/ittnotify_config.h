@@ -1,11 +1,32 @@
 /* <copyright>
+  This file is provided under a dual BSD/GPLv2 license.  When using or
+  redistributing this file, you may do so under either license.
+
+  GPL LICENSE SUMMARY
+
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of version 2 of the GNU General Public License as
+  published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+  The full GNU General Public License is included in this distribution
+  in the file called LICENSE.GPL.
 
   Contact Information:
-  https://software.intel.com/content/www/us/en/develop/tools/vtune-profiler.html
+  http://software.intel.com/en-us/articles/intel-vtune-amplifier-xe/
 
   BSD LICENSE
 
-  Copyright (c) 2005-2014 Intel Corporation. All rights reserved.
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -54,10 +75,6 @@
 #  define ITT_OS_FREEBSD   4
 #endif /* ITT_OS_FREEBSD */
 
-#ifndef ITT_OS_OPENBSD
-#  define ITT_OS_OPENBSD   5
-#endif /* ITT_OS_OPENBSD */
-
 #ifndef ITT_OS
 #  if defined WIN32 || defined _WIN32
 #    define ITT_OS ITT_OS_WIN
@@ -65,8 +82,6 @@
 #    define ITT_OS ITT_OS_MAC
 #  elif defined( __FreeBSD__ )
 #    define ITT_OS ITT_OS_FREEBSD
-#  elif defined( __OpenBSD__ )
-#    define ITT_OS ITT_OS_OPENBSD
 #  else
 #    define ITT_OS ITT_OS_LINUX
 #  endif
@@ -88,10 +103,6 @@
 #  define ITT_PLATFORM_FREEBSD 4
 #endif /* ITT_PLATFORM_FREEBSD */
 
-#ifndef ITT_PLATFORM_OPENBSD
-#  define ITT_PLATFORM_OPENBSD 5
-#endif /* ITT_PLATFORM_OPENBSD */
-
 #ifndef ITT_PLATFORM
 #  if ITT_OS==ITT_OS_WIN
 #    define ITT_PLATFORM ITT_PLATFORM_WIN
@@ -99,8 +110,6 @@
 #    define ITT_PLATFORM ITT_PLATFORM_MAC
 #  elif ITT_OS==ITT_OS_FREEBSD
 #    define ITT_PLATFORM ITT_PLATFORM_FREEBSD
-#  elif ITT_OS==ITT_OS_OPENBSD
-#    define ITT_PLATFORM ITT_PLATFORM_OPENBSD
 #  else
 #    define ITT_PLATFORM ITT_PLATFORM_POSIX
 #  endif
@@ -153,7 +162,7 @@
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 /* use __forceinline (VC++ specific) */
-#define ITT_INLINE           static __forceinline
+#define ITT_INLINE           __forceinline
 #define ITT_INLINE_ATTRIBUTE /* nothing */
 #else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 /*
@@ -191,9 +200,9 @@
 #  define ITT_ARCH_PPC64  5
 #endif /* ITT_ARCH_PPC64 */
 
-#ifndef ITT_ARCH_AARCH64  /* 64-bit ARM */
-#  define ITT_ARCH_AARCH64  6
-#endif /* ITT_ARCH_AARCH64 */
+#ifndef ITT_ARCH_ARM64
+#  define ITT_ARCH_ARM64  6
+#endif /* ITT_ARCH_ARM64 */
 
 #ifndef ITT_ARCH
 #  if defined _M_IX86 || defined __i386__
@@ -205,7 +214,7 @@
 #  elif defined _M_ARM || defined __arm__
 #    define ITT_ARCH ITT_ARCH_ARM
 #  elif defined __aarch64__
-#    define ITT_ARCH ITT_ARCH_AARCH64
+#    define ITT_ARCH ITT_ARCH_ARM64
 #  elif defined __powerpc64__
 #    define ITT_ARCH ITT_ARCH_PPC64
 #  endif
@@ -234,7 +243,7 @@
 #define ITT_MAGIC { 0xED, 0xAB, 0xAB, 0xEC, 0x0D, 0xEE, 0xDA, 0x30 }
 
 /* Replace with snapshot date YYYYMMDD for promotion build. */
-#define API_VERSION_BUILD    20151119
+#define API_VERSION_BUILD    20210712
 
 #ifndef API_VERSION_NUM
 #define API_VERSION_NUM 0.0.0
@@ -249,7 +258,11 @@
 typedef HMODULE           lib_t;
 typedef DWORD             TIDT;
 typedef CRITICAL_SECTION  mutex_t;
+#ifdef __cplusplus
+#define MUTEX_INITIALIZER {}
+#else
 #define MUTEX_INITIALIZER { 0 }
+#endif
 #define strong_alias(name, aliasname) /* empty for Windows */
 #else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #include <dlfcn.h>
@@ -277,13 +290,13 @@ typedef pthread_mutex_t   mutex_t;
 #define __itt_mutex_init(mutex)   InitializeCriticalSection(mutex)
 #define __itt_mutex_lock(mutex)   EnterCriticalSection(mutex)
 #define __itt_mutex_unlock(mutex) LeaveCriticalSection(mutex)
+#define __itt_mutex_destroy(mutex) DeleteCriticalSection(mutex)
 #define __itt_load_lib(name)      LoadLibraryA(name)
 #define __itt_unload_lib(handle)  FreeLibrary(handle)
 #define __itt_system_error()      (int)GetLastError()
 #define __itt_fstrcmp(s1, s2)     lstrcmpA(s1, s2)
 #define __itt_fstrnlen(s, l)      strnlen_s(s, l)
 #define __itt_fstrcpyn(s1, b, s2, l) strncpy_s(s1, b, s2, l)
-#define __itt_fstrdup(s)          _strdup(s)
 #define __itt_thread_id()         GetCurrentThreadId()
 #define __itt_thread_yield()      SwitchToThread()
 #ifndef ITT_SIMPLE_INIT
@@ -292,6 +305,13 @@ __itt_interlocked_increment(volatile long* ptr) ITT_INLINE_ATTRIBUTE;
 ITT_INLINE long __itt_interlocked_increment(volatile long* ptr)
 {
     return InterlockedIncrement(ptr);
+}
+ITT_INLINE long
+__itt_interlocked_compare_exchange(volatile long* ptr, long exchange, long comperand) ITT_INLINE_ATTRIBUTE;
+ITT_INLINE long
+__itt_interlocked_compare_exchange(volatile long* ptr, long exchange, long comperand)
+{
+    return InterlockedCompareExchange(ptr, exchange, comperand);
 }
 #endif /* ITT_SIMPLE_INIT */
 
@@ -322,6 +342,7 @@ ITT_INLINE long __itt_interlocked_increment(volatile long* ptr)
 }
 #define __itt_mutex_lock(mutex)   pthread_mutex_lock(mutex)
 #define __itt_mutex_unlock(mutex) pthread_mutex_unlock(mutex)
+#define __itt_mutex_destroy(mutex) pthread_mutex_destroy(mutex)
 #define __itt_load_lib(name)      dlopen(name, RTLD_LAZY)
 #define __itt_unload_lib(handle)  dlclose(handle)
 #define __itt_system_error()      errno
@@ -336,10 +357,18 @@ ITT_INLINE long __itt_interlocked_increment(volatile long* ptr)
 #ifdef SDL_STRNCPY_S
 #define __itt_fstrcpyn(s1, b, s2, l) SDL_STRNCPY_S(s1, b, s2, l)
 #else
-#define __itt_fstrcpyn(s1, b, s2, l) strncpy(s1, s2, b)
+#define __itt_fstrcpyn(s1, b, s2, l) {                                      \
+    if (b > 0) {                                                            \
+        /* 'volatile' is used to suppress the warning that a destination */ \
+        /*  bound depends on the length of the source.                   */ \
+        volatile size_t num_to_copy = (size_t)(b - 1) < (size_t)(l) ?       \
+                (size_t)(b - 1) : (size_t)(l);                              \
+        strncpy(s1, s2, num_to_copy);                                       \
+        s1[num_to_copy] = 0;                                                \
+    }                                                                       \
+}
 #endif /* SDL_STRNCPY_S */
 
-#define __itt_fstrdup(s)          strdup(s)
 #define __itt_thread_id()         pthread_self()
 #define __itt_thread_yield()      sched_yield()
 #if ITT_ARCH==ITT_ARCH_IA64
@@ -360,7 +389,7 @@ ITT_INLINE long __TBB_machine_fetchadd4(volatile void* ptr, long addend)
                           : "memory");
     return result;
 }
-#elif ITT_ARCH==ITT_ARCH_ARM || ITT_ARCH==ITT_ARCH_AARCH64 || ITT_ARCH==ITT_ARCH_PPC64
+#else
 #define __TBB_machine_fetchadd4(addr, val) __sync_fetch_and_add(addr, val)
 #endif /* ITT_ARCH==ITT_ARCH_IA64 */
 #ifndef ITT_SIMPLE_INIT
@@ -370,20 +399,20 @@ ITT_INLINE long __itt_interlocked_increment(volatile long* ptr)
 {
     return __TBB_machine_fetchadd4(ptr, 1) + 1L;
 }
+ITT_INLINE long
+__itt_interlocked_compare_exchange(volatile long* ptr, long exchange, long comperand) ITT_INLINE_ATTRIBUTE;
+ITT_INLINE long
+__itt_interlocked_compare_exchange(volatile long* ptr, long exchange, long comperand)
+{
+    return __sync_val_compare_and_swap(ptr, exchange, comperand);
+}
 #endif /* ITT_SIMPLE_INIT */
 
-#if 1
-void* dlopen(const char*, int);
-void* dlsym(void*, const char*);
-int dlclose(void*);
-#else
-void* dlopen(const char*, int);
-void* dlsym(void*, const char*);
-int dlclose(void*);
-#endif
+void* dlopen(const char*, int) __attribute__((weak));
+void* dlsym(void*, const char*) __attribute__((weak));
+int dlclose(void*) __attribute__((weak));
 #define DL_SYMBOLS (dlopen && dlsym && dlclose)
 
-#if 1
 int pthread_mutex_init(pthread_mutex_t*, const pthread_mutexattr_t*) __attribute__((weak));
 int pthread_mutex_lock(pthread_mutex_t*) __attribute__((weak));
 int pthread_mutex_unlock(pthread_mutex_t*) __attribute__((weak));
@@ -392,24 +421,24 @@ int pthread_mutexattr_init(pthread_mutexattr_t*) __attribute__((weak));
 int pthread_mutexattr_settype(pthread_mutexattr_t*, int) __attribute__((weak));
 int pthread_mutexattr_destroy(pthread_mutexattr_t*) __attribute__((weak));
 pthread_t pthread_self(void) __attribute__((weak));
-#else
-int pthread_mutex_init(pthread_mutex_t*, const pthread_mutexattr_t*);
-int pthread_mutex_lock(pthread_mutex_t*);
-int pthread_mutex_unlock(pthread_mutex_t*);
-int pthread_mutex_destroy(pthread_mutex_t*);
-int pthread_mutexattr_init(pthread_mutexattr_t*);
-int pthread_mutexattr_settype(pthread_mutexattr_t*, int);
-int pthread_mutexattr_destroy(pthread_mutexattr_t*);
-pthread_t pthread_self(void);
-#endif
 #define PTHREAD_SYMBOLS (pthread_mutex_init && pthread_mutex_lock && pthread_mutex_unlock && pthread_mutex_destroy && pthread_mutexattr_init && pthread_mutexattr_settype && pthread_mutexattr_destroy && pthread_self)
 
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 
-typedef enum {
-    __itt_collection_normal = 0,
-    __itt_collection_paused = 1
-} __itt_collection_state;
+/* strdup() is not included into C99 which results in a compiler warning about
+ * implicitly declared symbol. To avoid the issue strdup is implemented
+ * manually.
+ */
+#define ITT_STRDUP_MAX_STRING_SIZE 4096
+#define __itt_fstrdup(s, new_s) do {                                        \
+    if (s != NULL) {                                                        \
+        size_t s_len = __itt_fstrnlen(s, ITT_STRDUP_MAX_STRING_SIZE);       \
+        new_s = (char *)malloc(s_len + 1);                                  \
+        if (new_s != NULL) {                                                \
+            __itt_fstrcpyn(new_s, s_len + 1, s, s_len);                     \
+        }                                                                   \
+    }                                                                       \
+} while(0)
 
 typedef enum {
     __itt_thread_normal  = 0,
@@ -475,6 +504,9 @@ typedef struct __itt_counter_info
 
 struct ___itt_domain;
 struct ___itt_string_handle;
+struct ___itt_histogram;
+
+#include "ittnotify.h"
 
 typedef struct ___itt_global
 {
@@ -496,7 +528,9 @@ typedef struct ___itt_global
     struct ___itt_domain*  domain_list;
     struct ___itt_string_handle* string_list;
     __itt_collection_state state;
-    __itt_counter_info_t* counter_list;
+    __itt_counter_info_t*  counter_list;
+    unsigned int           ipt_collect_events;
+    struct ___itt_histogram* histogram_list;
 } __itt_global;
 
 #pragma pack(pop)
@@ -522,7 +556,9 @@ typedef struct ___itt_global
     h = (__itt_thread_info*)malloc(sizeof(__itt_thread_info)); \
     if (h != NULL) { \
         h->tid    = t; \
-        h->nameA  = n ? __itt_fstrdup(n) : NULL; \
+        char *name_copy = NULL; \
+        __itt_fstrdup(n, name_copy); \
+        h->nameA  = name_copy; \
         h->nameW  = NULL; \
         h->state  = s; \
         h->extra1 = 0;    /* reserved */ \
@@ -555,7 +591,9 @@ typedef struct ___itt_global
     h = (__itt_domain*)malloc(sizeof(__itt_domain)); \
     if (h != NULL) { \
         h->flags  = 1;    /* domain is enabled by default */ \
-        h->nameA  = name ? __itt_fstrdup(name) : NULL; \
+        char *name_copy = NULL; \
+        __itt_fstrdup(name, name_copy); \
+        h->nameA  = name_copy; \
         h->nameW  = NULL; \
         h->extra1 = 0;    /* reserved */ \
         h->extra2 = NULL; /* reserved */ \
@@ -585,7 +623,9 @@ typedef struct ___itt_global
 #define NEW_STRING_HANDLE_A(gptr,h,h_tail,name) { \
     h = (__itt_string_handle*)malloc(sizeof(__itt_string_handle)); \
     if (h != NULL) { \
-        h->strA   = name ? __itt_fstrdup(name) : NULL; \
+        char *name_copy = NULL; \
+        __itt_fstrdup(name, name_copy); \
+        h->strA  = name_copy; \
         h->strW   = NULL; \
         h->extra1 = 0;    /* reserved */ \
         h->extra2 = NULL; /* reserved */ \
@@ -617,15 +657,55 @@ typedef struct ___itt_global
 #define NEW_COUNTER_A(gptr,h,h_tail,name,domain,type) { \
     h = (__itt_counter_info_t*)malloc(sizeof(__itt_counter_info_t)); \
     if (h != NULL) { \
-        h->nameA   = name ? __itt_fstrdup(name) : NULL; \
+        char *name_copy = NULL; \
+        __itt_fstrdup(name, name_copy); \
+        h->nameA  = name_copy; \
         h->nameW   = NULL; \
-        h->domainA   = domain ? __itt_fstrdup(domain) : NULL; \
+        char *domain_copy = NULL; \
+        __itt_fstrdup(domain, domain_copy); \
+        h->domainA  = domain_copy; \
         h->domainW   = NULL; \
         h->type = type; \
         h->index = 0; \
         h->next   = NULL; \
         if (h_tail == NULL) \
             (gptr)->counter_list = h; \
+        else \
+            h_tail->next = h; \
+    } \
+}
+
+#define NEW_HISTOGRAM_W(gptr,h,h_tail,domain,name,x_type,y_type) { \
+    h = (__itt_histogram*)malloc(sizeof(__itt_histogram)); \
+    if (h != NULL) { \
+        h->domain = domain; \
+        h->nameA  = NULL; \
+        h->nameW  = name ? _wcsdup(name) : NULL; \
+        h->x_type = x_type; \
+        h->y_type = y_type; \
+        h->extra1 = 0; \
+        h->extra2 = NULL; \
+        if (h_tail == NULL) \
+            (gptr)->histogram_list = h; \
+        else \
+            h_tail->next = h; \
+    } \
+}
+
+#define NEW_HISTOGRAM_A(gptr,h,h_tail,domain,name,x_type,y_type) { \
+    h = (__itt_histogram*)malloc(sizeof(__itt_histogram)); \
+    if (h != NULL) { \
+        h->domain = domain; \
+        char *name_copy = NULL; \
+        __itt_fstrdup(name, name_copy); \
+        h->nameA  = name_copy; \
+        h->nameW  = NULL; \
+        h->x_type = x_type; \
+        h->y_type = y_type; \
+        h->extra1 = 0; \
+        h->extra2 = NULL; \
+        if (h_tail == NULL) \
+            (gptr)->histogram_list = h; \
         else \
             h_tail->next = h; \
     } \

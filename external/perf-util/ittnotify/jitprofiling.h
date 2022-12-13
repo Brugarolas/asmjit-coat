@@ -1,11 +1,32 @@
 /* <copyright>
+  This file is provided under a dual BSD/GPLv2 license.  When using or
+  redistributing this file, you may do so under either license.
+
+  GPL LICENSE SUMMARY
+
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of version 2 of the GNU General Public License as
+  published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+  The full GNU General Public License is included in this distribution
+  in the file called LICENSE.GPL.
 
   Contact Information:
-  https://software.intel.com/content/www/us/en/develop/tools/vtune-profiler.html
+  http://software.intel.com/en-us/articles/intel-vtune-amplifier-xe/
 
   BSD LICENSE
 
-  Copyright (c) 2005-2014 Intel Corporation. All rights reserved.
+  Copyright (c) 2005-2017 Intel Corporation. All rights reserved.
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -231,6 +252,7 @@ typedef enum iJIT_jvm_event
                                       * - method_size            specify length of updated code
                                       *                          range. */
 
+
     iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED, /**<\brief Send when an inline dynamic
                                                   * code is JIT compiled and loaded
                                                   * into memory by the JIT engine,
@@ -294,7 +316,7 @@ typedef enum _iJIT_IsProfilingActiveFlags
  */
 typedef struct _LineNumberInfo
 {
-    unsigned int Offset;     /**<\brief Offset from the beginning of the code region. */
+    unsigned int Offset;     /**<\brief Offset from the begining of the code region. */
     unsigned int LineNumber; /**<\brief Matching source line number offset (from beginning of source file). */
 
 } *pLineNumberInfo, LineNumberInfo;

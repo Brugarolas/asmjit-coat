@@ -226,7 +226,7 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
     int i, j, p;
     for (i = 0; i < M; i++) {
         for (j = 0; j < N; j++) {
-            C(i, j) = j; // post ops, per-channel
+            C(i, j) = (float)j; // post ops, per-channel
             for (p = 0; p < K; p++) {
                 C(i, j) += A(i, p) * B(p, j);
             }
