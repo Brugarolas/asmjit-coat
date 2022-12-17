@@ -253,7 +253,7 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
 //using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
 using func_t = void (*)(float* a, float* b, float* c, Jit::JitPostOps* param);
 template <unsigned width>
-func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
+func_t make_brgemm_pf(int M, int N, int K, int lda, int ldb, int ldc) {
     auto fn = coat::createFunction<func_t>("brgemm");
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
@@ -388,6 +388,313 @@ func_t make_brgemm(int M, int N, int K, int lda, int ldb, int ldc) {
     return foo;
 }
 
+template <unsigned width>
+func_t make_brgemm_stride(int M, int N, int K, int lda, int ldb, int ldc) {
+    auto fn = coat::createFunction<func_t>("brgemm");
+    if constexpr (width == 16)
+        fn.funcNode->frame().setAvx512Enabled();
+    else if  constexpr (width == 8)
+        fn.funcNode->frame().setAvxEnabled();
+#if ENABLE_DUMP
+    fn.enableCodeDump();
+#endif
+    {
+        lda /= sizeof(float);
+        ldb /= sizeof(float);
+        ldc /= sizeof(float);
+        auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
+        const int oc_num = 3;
+        const int ur_num = ROWS; // hardcode 8 rows
+        using share_vec = std::shared_ptr<coat::Vec<float, width>>;
+        std::vector<share_vec> j_weight(oc_num);
+        std::vector<share_vec> j_result;
+        for (int i = 0; i < oc_num; i++) {
+            j_weight[i] = std::make_shared<coat::Vec<float, width>>();
+        }
+        for (int i = 0; i < oc_num * ur_num; i++) {
+            j_result.push_back(std::make_shared<coat::Vec<float, width>>());
+        }
+        coat::Vec<float, width> j_data;
+        
+        // several lines fall in one page
+        if (lda < 2048) {
+            int m_group;
+            if (lda < 128) m_group = 8;
+            else if (lda < 256) m_group = 8;
+            else if (lda < 512) m_group = 4;
+            else m_group = 2;
+            coat::Value<int> j_m(int(0), "m");
+                //for (m = 0; m < M; m += 8) {
+            coat::for_loop(j_m < M / ur_num * ur_num,
+            [&] {
+                j_m += ur_num * m_group;
+                j_a += ur_num * lda * m_group;
+                j_c += ur_num * ldc * m_group;
+            },
+            [&] {
+                for (int sub_m = 0; sub_m < m_group; sub_m++) {
+                    for (int i = 0; i < oc_num * ur_num; i++) {
+                        (*j_result[i]) = 0;
+                    }
+                    coat::Value<int> j_k(int(0), "k");
+                    auto j_b_row = j_b;
+                    auto j_a_row = j_a;
+                    auto fma = [&](bool last_block) {
+                        for (int j = 0; j < width; j++) {
+                            for (int n = 0; n < oc_num; n++) {
+                                j_weight[n]->load(j_b_row[j * ldb + n * width]);
+                            }
+                            for (int m = 0; m < ur_num; m++) {
+                                j_data.load(j_a_row[m * lda * m_group + sub_m * lda + j], true);
+                                for (int n = 0; n < oc_num; n++) {
+                                    j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
+                                }
+                            }
+                        }
+                    };
+                    //for (k = 0; k < K; k += width) {
+                    coat::for_loop(j_k < K, // TODO handle tail
+                        [&] {
+                            j_k += width;
+                            j_b_row += width * ldb;
+                            j_a_row += width;
+                        },
+                        [&] {
+                            fma(false);
+                        });
+
+                    for (int m = 0; m < ur_num; m++) {
+                        for (int n = 0; n < oc_num; n++) {
+                            j_result[m * oc_num + n]->store(j_c[m * ldc * m_group + sub_m * ldc + n * width]);
+                        }
+                    }
+                }
+            });
+        }
+        else {
+            coat::Value<int> j_m(int(0), "m");
+            //for (m = 0; m < M; m += 8) {
+            coat::for_loop(j_m < M / ur_num * ur_num,
+                [&] {
+                    j_m += ur_num;
+            j_a += ur_num * lda;
+            j_c += ur_num * ldc;
+                },
+                [&] {
+                    for (int i = 0; i < oc_num * ur_num; i++) {
+                        (*j_result[i]) = 0;
+                    }
+                coat::Value<int> j_k(int(0), "k");
+                auto j_b_row = j_b;
+                auto j_a_row = j_a;
+                auto fma = [&](bool last_block) {
+                    for (int j = 0; j < width; j++) {
+                        for (int n = 0; n < oc_num; n++) {
+                            j_weight[n]->load(j_b_row[j * ldb + n * width]);
+                        }
+                        for (int m = 0; m < ur_num; m++) {
+                            j_data.load(j_a_row[m * lda + j], true);
+                            for (int n = 0; n < oc_num; n++) {
+                                j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
+                            }
+                        }
+                    }
+                };
+                for (int y = 0; y < 0; y++) {
+                    fma(false);
+                    j_k += width;
+                    j_b_row += width * ldb;
+                    j_a_row += width;
+                }
+                //for (k = 0; k < K; k += width) {
+                coat::for_loop(j_k < K, // TODO handle tail
+                    [&] {
+                        j_k += width;
+                j_b_row += width * ldb;
+                j_a_row += width;
+                    },
+                    [&] {
+                        fma(false);
+                    });
+
+                for (int m = 0; m < ur_num; m++) {
+                    for (int n = 0; n < oc_num; n++) {
+                        j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
+                    }
+                }
+                });
+        }
+
+        // M tail TODO, remove repeated code
+        if (M % ur_num) {
+            auto ur = M % ur_num;
+            for (int i = 0; i < oc_num * ur; i++) {
+                (*j_result[i]) = 0;
+            }
+            coat::Value<int> j_k(int(0), "k");
+            auto j_b_row = j_b;
+            auto j_a_row = j_a;
+            //for (k = 0; k < K; k += width) {
+            coat::for_loop(j_k < K, // TODO handle tail
+                [&] {
+                    j_k += width;
+            j_b_row += width * ldb;
+            j_a_row += width;
+                },
+                [&] {
+                    for (int j = 0; j < width; j++) {
+                        for (int n = 0; n < oc_num; n++) {
+                            j_weight[n]->load(j_b_row[j * ldb + n * width]);
+                        }
+                        for (int m = 0; m < ur; m++) {
+                            j_data.load(j_a_row[m * lda + j], true);
+                            for (int n = 0; n < oc_num; n++) {
+                                j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
+                            }
+                        }
+                    }
+                });
+
+            for (int m = 0; m < ur; m++) {
+                for (int n = 0; n < oc_num; n++) {
+                    j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
+                }
+            }
+        }
+        // specify return value
+        coat::ret();
+    }
+
+    // finalize code generation and get function pointer to the generated function
+    auto foo = fn.finalize();
+    return foo;
+}
+
+template <unsigned width>
+func_t make_brgemm_org(int M, int N, int K, int lda, int ldb, int ldc) {
+    auto fn = coat::createFunction<func_t>("brgemm");
+    if constexpr (width == 16)
+        fn.funcNode->frame().setAvx512Enabled();
+    else if  constexpr (width == 8)
+        fn.funcNode->frame().setAvxEnabled();
+#if ENABLE_DUMP
+    fn.enableCodeDump();
+#endif
+    {
+        lda /= sizeof(float);
+        ldb /= sizeof(float);
+        ldc /= sizeof(float);
+        auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
+        const int oc_num = 3;
+        const int ur_num = ROWS; // hardcode 8 rows
+        using share_vec = std::shared_ptr<coat::Vec<float, width>>;
+        std::vector<share_vec> j_weight(oc_num);
+        std::vector<share_vec> j_result;
+        for (int i = 0; i < oc_num; i++) {
+            j_weight[i] = std::make_shared<coat::Vec<float, width>>();
+        }
+        for (int i = 0; i < oc_num * ur_num; i++) {
+            j_result.push_back(std::make_shared<coat::Vec<float, width>>());
+        }
+        coat::Vec<float, width> j_data;
+
+        coat::Value<int> j_m(int(0), "m");
+        //for (m = 0; m < M; m += 8) {
+        coat::for_loop(j_m < M / ur_num * ur_num,
+            [&] {
+                j_m += ur_num;
+        j_a += ur_num * lda;
+        j_c += ur_num * ldc;
+            },
+            [&] {
+                for (int i = 0; i < oc_num * ur_num; i++) {
+                    (*j_result[i]) = 0;
+                }
+            coat::Value<int> j_k(int(0), "k");
+            auto j_b_row = j_b;
+            auto j_a_row = j_a;
+            auto fma = [&](bool last_block) {
+                for (int j = 0; j < width; j++) {
+                    for (int n = 0; n < oc_num; n++) {
+                        j_weight[n]->load(j_b_row[j * ldb + n * width]);
+                    }
+                    for (int m = 0; m < ur_num; m++) {
+                        j_data.load(j_a_row[m * lda + j], true);
+                        for (int n = 0; n < oc_num; n++) {
+                            j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
+                        }
+                    }
+                }
+            };
+            for (int y = 0; y < 0; y++) {
+                fma(false);
+                j_k += width;
+                j_b_row += width * ldb;
+                j_a_row += width;
+            }
+            //for (k = 0; k < K; k += width) {
+            coat::for_loop(j_k < K, // TODO handle tail
+                [&] {
+                    j_k += width;
+            j_b_row += width * ldb;
+            j_a_row += width;
+                },
+                [&] {
+                    fma(false);
+                });
+
+            for (int m = 0; m < ur_num; m++) {
+                for (int n = 0; n < oc_num; n++) {
+                    j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
+                }
+            }
+            });
+
+        // M tail TODO, remove repeated code
+        if (M % ur_num) {
+            auto ur = M % ur_num;
+            for (int i = 0; i < oc_num * ur; i++) {
+                (*j_result[i]) = 0;
+            }
+            coat::Value<int> j_k(int(0), "k");
+            auto j_b_row = j_b;
+            auto j_a_row = j_a;
+            //for (k = 0; k < K; k += width) {
+            coat::for_loop(j_k < K, // TODO handle tail
+                [&] {
+                    j_k += width;
+            j_b_row += width * ldb;
+            j_a_row += width;
+                },
+                [&] {
+                    for (int j = 0; j < width; j++) {
+                        for (int n = 0; n < oc_num; n++) {
+                            j_weight[n]->load(j_b_row[j * ldb + n * width]);
+                        }
+                        for (int m = 0; m < ur; m++) {
+                            j_data.load(j_a_row[m * lda + j], true);
+                            for (int n = 0; n < oc_num; n++) {
+                                j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
+                            }
+                        }
+                    }
+                });
+
+            for (int m = 0; m < ur; m++) {
+                for (int n = 0; n < oc_num; n++) {
+                    j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
+                }
+            }
+        }
+        // specify return value
+        coat::ret();
+    }
+
+    // finalize code generation and get function pointer to the generated function
+    auto foo = fn.finalize();
+    return foo;
+}
+
 // typical convolution layout
 // a: aBcd16b
 // b: OIhw16i16o
@@ -447,7 +754,7 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
                     for (int m = 0; m < ur_num; m++) {
                         j_data.load(j_a_row[m * lda + j], true);
                         if (j == 0) {
-                            _CC.prefetcht0(j_a_row[m * lda + width * M]);
+                        //    _CC.prefetcht0(j_a_row[m * lda + width * M]);
                         }
                         for (int n = 0; n < oc_num; n++) {
                             j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
@@ -457,7 +764,7 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
             };
 
             //for (k = 0; k < K; k += width) {
-            coat::for_loop(j_k < K - width, // TODO handle tail
+            coat::for_loop(j_k < K,// - width, // TODO handle tail
                 [&] {
                         j_k += width;
                         j_b_row += width * ldb;
@@ -466,7 +773,7 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
                 [&] {
                 fma(false);
             });
-            fma(true);
+            //fma(true);
 
             for (int m = 0; m < ur_num; m++) {
                 for (int n = 0; n < oc_num; n++) {
@@ -489,7 +796,7 @@ void do_test(const char* name, func_t f, float* a, float* b, float* c) {
     __itt_pt_region region = __itt_pt_region_create(name);
 #endif
     auto beg = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
 #ifndef WIN32
         __itt_mark_pt_region_begin(region);
         f(a, b, c, nullptr);
@@ -503,7 +810,7 @@ void do_test(const char* name, func_t f, float* a, float* b, float* c) {
     std::cout << name << " cost " << diff / 1000.0f << " ms" << std::endl;
 }
 
-void test_brgemm(int M, int N, int K) {
+void test_brgemm_pf(int M, int N, int K) {
     // postops, perchannel
     std::vector<float> d(N, 0);
     std::iota(d.begin(), d.end(), 0.0f);
@@ -517,18 +824,104 @@ void test_brgemm(int M, int N, int K) {
     post_ops.ops[0].alg_type = Jit::AlgType::Abs;
     post_ops.ops[1].alg_type = Jit::AlgType::Add;
     post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
-    auto f = make_brgemm<16>(M, N, K, K * 4, N * 4, N * 4);
+    auto f = make_brgemm_pf<16>(M, N, K, K * 4, N * 4, N * 4);
     Jit::JitPostOps ops;
     ops.params[1].right_addr = d.data();
     
     //static _declspec(align(1024)) float xa[2560000*288] = {0};
     f(a.data(), b.data(), c.data(), nullptr);
     //f(a.data(), b.data(), c.data(), nullptr);
-    do_test("brgemm", f, a.data(), b.data(), c.data());
+    do_test("brgemm_pf", f, a.data(), b.data(), c.data());
     matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
     if(c == c_ref) {
         printf("correct \n");
     } else {
+        bool error = false;
+        for (int i = 0; i < (int)c.size(); i++) {
+            if (std::abs(c[i] - c_ref[i]) > 0.00001f * std::abs(c[i])) {
+                error = true;
+                printf("first error at %d, cur %f ref %f\n", i, c[i], c_ref[i]);
+                break;
+            }
+        }
+        if (error)
+            printf("wrong result\n");
+        else
+            printf("correct with minor error\n");
+    }
+    coat::getJitRuntimeEnv().release_func(f);
+}
+
+void test_brgemm_stride(int M, int N, int K) {
+    // postops, perchannel
+    std::vector<float> d(N, 0);
+    std::iota(d.begin(), d.end(), 0.0f);
+
+    std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
+    std::iota(a.begin(), a.end(), 1.0f);
+    std::iota(b.begin(), b.end(), 2.0f);
+
+    Jit::PostOps post_ops;
+    post_ops.num = 0;
+    post_ops.ops[0].alg_type = Jit::AlgType::Abs;
+    post_ops.ops[1].alg_type = Jit::AlgType::Add;
+    post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
+    auto f = make_brgemm_stride<16>(M, N, K, K * 4, N * 4, N * 4);
+    Jit::JitPostOps ops;
+    ops.params[1].right_addr = d.data();
+
+    //static _declspec(align(1024)) float xa[2560000*288] = {0};
+    f(a.data(), b.data(), c.data(), nullptr);
+    //f(a.data(), b.data(), c.data(), nullptr);
+    do_test("brgemm_stride", f, a.data(), b.data(), c.data());
+    matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
+    if (c == c_ref) {
+        printf("correct \n");
+    }
+    else {
+        bool error = false;
+        for (int i = 0; i < (int)c.size(); i++) {
+            if (std::abs(c[i] - c_ref[i]) > 0.00001f * std::abs(c[i])) {
+                error = true;
+                printf("first error at %d, cur %f ref %f\n", i, c[i], c_ref[i]);
+                break;
+            }
+        }
+        if (error)
+            printf("wrong result\n");
+        else
+            printf("correct with minor error\n");
+    }
+    coat::getJitRuntimeEnv().release_func(f);
+}
+
+void test_brgemm_org(int M, int N, int K) {
+    // postops, perchannel
+    std::vector<float> d(N, 0);
+    std::iota(d.begin(), d.end(), 0.0f);
+
+    std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
+    std::iota(a.begin(), a.end(), 1.0f);
+    std::iota(b.begin(), b.end(), 2.0f);
+
+    Jit::PostOps post_ops;
+    post_ops.num = 0;
+    post_ops.ops[0].alg_type = Jit::AlgType::Abs;
+    post_ops.ops[1].alg_type = Jit::AlgType::Add;
+    post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
+    auto f = make_brgemm_org<16>(M, N, K, K * 4, N * 4, N * 4);
+    Jit::JitPostOps ops;
+    ops.params[1].right_addr = d.data();
+
+    //static _declspec(align(1024)) float xa[2560000*288] = {0};
+    f(a.data(), b.data(), c.data(), nullptr);
+    //f(a.data(), b.data(), c.data(), nullptr);
+    do_test("brgemm_org", f, a.data(), b.data(), c.data());
+    matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
+    if (c == c_ref) {
+        printf("correct \n");
+    }
+    else {
         bool error = false;
         for (int i = 0; i < (int)c.size(); i++) {
             if (std::abs(c[i] - c_ref[i]) > 0.00001f * std::abs(c[i])) {
@@ -618,10 +1011,12 @@ int main() {
 #endif
     init_fp_mode();
     int M, N, K;
-    M = 25600, N = 48, K = 288;
-    for (; K <= 288; K += 16) {
-        printf("K=%d\n", K);
+    M = 25600, N = 48, K = 448;
+    for (; K <= 448; K += 16) {
+        printf("K=%d, idea = %.2f\n", K, M / 16.0 * N * K * 10000 / (2 * 1000 * 1000) / 1000);
         test_block(M, N, K);
-        test_brgemm(M, N, K);
+        test_brgemm_pf(M, N, K);
+        test_brgemm_stride(M, N, K);
+        test_brgemm_org(M, N, K);
     }
 }
