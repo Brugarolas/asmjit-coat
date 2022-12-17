@@ -424,7 +424,7 @@ func_t make_brgemm_stride(int M, int N, int K, int lda, int ldb, int ldc) {
             else if (lda < 512) m_group = 4;
             else m_group = 2;
             coat::Value<int> j_m(int(0), "m");
-                //for (m = 0; m < M; m += 8) {
+            //for (m = 0; m < M; m += 8) {
             coat::for_loop(j_m < M / ur_num * ur_num,
             [&] {
                 j_m += ur_num * m_group;
@@ -432,20 +432,30 @@ func_t make_brgemm_stride(int M, int N, int K, int lda, int ldb, int ldc) {
                 j_c += ur_num * ldc * m_group;
             },
             [&] {
-                for (int sub_m = 0; sub_m < m_group; sub_m++) {
+                coat::Value<int> j_sub_m(int(0), "sub_m");
+                auto j_aa = j_a; // a ptr inside a group
+                auto j_cc = j_c;
+                //for (int sub_m = 0; sub_m < m_group; sub_m++) {
+                coat::for_loop(j_sub_m < m_group,
+                [&] {
+                    j_sub_m += 1;
+                    j_aa += lda;
+                    j_cc += ldc;
+                },
+                [&] {
                     for (int i = 0; i < oc_num * ur_num; i++) {
                         (*j_result[i]) = 0;
                     }
                     coat::Value<int> j_k(int(0), "k");
                     auto j_b_row = j_b;
-                    auto j_a_row = j_a;
+                    auto j_a_row = j_aa;
                     auto fma = [&](bool last_block) {
                         for (int j = 0; j < width; j++) {
                             for (int n = 0; n < oc_num; n++) {
                                 j_weight[n]->load(j_b_row[j * ldb + n * width]);
                             }
                             for (int m = 0; m < ur_num; m++) {
-                                j_data.load(j_a_row[m * lda * m_group + sub_m * lda + j], true);
+                                j_data.load(j_a_row[m * lda * m_group + j], true);
                                 for (int n = 0; n < oc_num; n++) {
                                     j_result[m * oc_num + n]->fma231(*j_weight[n], j_data);
                                 }
@@ -465,10 +475,10 @@ func_t make_brgemm_stride(int M, int N, int K, int lda, int ldb, int ldc) {
 
                     for (int m = 0; m < ur_num; m++) {
                         for (int n = 0; n < oc_num; n++) {
-                            j_result[m * oc_num + n]->store(j_c[m * ldc * m_group + sub_m * ldc + n * width]);
+                            j_result[m * oc_num + n]->store(j_cc[m * ldc * m_group + n * width]);
                         }
                     }
-                }
+                });
             });
         }
         else {
@@ -1011,8 +1021,8 @@ int main() {
 #endif
     init_fp_mode();
     int M, N, K;
-    M = 25600, N = 48, K = 448;
-    for (; K <= 448; K += 16) {
+    M = 25600, N = 48, K = 128;
+    for (; K <= 2048; K += 16) {
         printf("K=%d, idea = %.2f\n", K, M / 16.0 * N * K * 10000 / (2 * 1000 * 1000) / 1000);
         test_block(M, N, K);
         test_brgemm_pf(M, N, K);
