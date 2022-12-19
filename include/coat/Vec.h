@@ -427,6 +427,17 @@ struct Vec<float, width> final {
             }
         }
     }
+    void kzload(Ref<Value<T>>&& src, asmjit::x86::KReg k) {
+        if constexpr (std::is_same_v<reg_type, asmjit::x86::Xmm>) {
+            static_assert(false, "xmm not support");
+        }
+        else if constexpr (std::is_same_v<reg_type, asmjit::x86::Ymm>) {
+            static_assert(false, "ymm not support");
+        }
+        else {
+            _CC.k(k).z().vmovups(reg, src);
+        }
+    }
     Vec& operator=(Ref<Value<T>>& src) { load(src); return *this; }
     void load(Ref<Value<T>>& src, bool broadcast = false) {
         if constexpr(std::is_same_v<reg_type,asmjit::x86::Xmm>) {
@@ -467,6 +478,17 @@ struct Vec<float, width> final {
         } else {
             dest.mem.setSize(64); // change to zmmword
             _CC.vmovups(dest, reg);            
+        }
+    }
+    void kstore(Ref<Value<T>>&& dest, asmjit::x86::KReg k) const {
+        if constexpr (std::is_same_v<reg_type, asmjit::x86::Xmm>) {
+            static_assert(false, "xmm not support");
+        }
+        else if constexpr (std::is_same_v<reg_type, asmjit::x86::Ymm>) {
+            static_assert(false, "ymm not support");
+        }
+        else {
+            _CC.k(k).vmovups(dest, reg);
         }
     }
     void store(Ref<Value<int8_t>>&& dest) const {
