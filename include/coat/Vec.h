@@ -552,6 +552,10 @@ struct Vec<float, width> final {
         _CC.vaddps(reg, reg, other);
         return *this;
     }
+    Vec& add(Ref<Value<T>>& other) {
+        _CC.vaddps(reg, reg, other);
+        return *this;
+    }
     Vec& sub(const Vec& other) {
         _CC.vsubps(reg, reg, other.reg);
         return *this;
@@ -588,6 +592,9 @@ struct Vec<float, width> final {
         return add(other);
     }
     Vec& operator+=(Ref<Value<T>>&& other) {
+        return add(other);
+    }
+    Vec& operator+=(Ref<Value<T>>& other) {
         return add(other);
     }
     Vec& operator-=(const Vec& other) {

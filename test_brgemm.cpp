@@ -43,7 +43,7 @@ enum class AlgType {
     Mul_C,
 };
 
-struct UnaryParam {
+struct UnaryStaticParam {
     float x1;
     float x2;
     float x3;
@@ -55,28 +55,28 @@ enum class BinaryDataLayout {
     PerChannel,
     PerElement
 };
-struct BinaryParam {
+struct BinaryStaticParam {
     BinaryDataLayout layout;
 };
 
-struct PostOp {
+struct PostOpStaticParam {
     AlgType alg_type;
     union {
-        UnaryParam unary_param;
-        BinaryParam binary_param;
+        UnaryStaticParam unary_param;
+        BinaryStaticParam binary_param;
     };
 };
 
 #define MAX_POSTOPS_NUM 10
-struct PostOps {
+struct PostOpStaticParams {
     int num = 0;
-    PostOp ops[MAX_POSTOPS_NUM];
+    PostOpStaticParam ops[MAX_POSTOPS_NUM];
 };
 
 ////////////////////////////////////////////////////
 // jit kernel param when calling kernels, private
-struct JitParam {
-    COAT_NAME("JitParam");
+struct PostOpRuntimeParam {
+    COAT_NAME("PostOpRuntimeParam");
     #define MEMBERS(x)    \
         x(float*, right_addr)
 
@@ -86,59 +86,61 @@ struct JitParam {
 };
 
 // array should use alias to workaround macro
-using JitParamArr = JitParam[MAX_POSTOPS_NUM];
-struct JitPostOps {
-    COAT_NAME("JitPostOps");
+using JitParamArr = PostOpRuntimeParam[MAX_POSTOPS_NUM];
+struct PostOpRuntimeParams {
+    COAT_NAME("PostOpRuntimeParams");
     #define MEMBERS(x)    \
         x(JitParamArr, params)
 
     COAT_DECLARE_PRIVATE(MEMBERS)
-    #undef MEMBERS    
-    // JitParam params[MAX_POSTOPS_NUM];
+    #undef MEMBERS
+    // PostOpRuntimeParam params[MAX_POSTOPS_NUM];
 };
 
 ////////////////////////////////////////////////////
 // generate jit kernel needed param when injecting kernels, private
-struct JitInjectPostOp {
+struct PostOpInjectParam {
     BinaryDataLayout layout;
-    std::vector<coat::Ref<coat::Value<float>>> right_addrs;
+    coat::Ptr<coat::Value<float>> right_addrs_base;
+    std::vector<int> right_addrs_offset;
 };
 
-struct JitInjectPostOps {
-    JitInjectPostOp params[MAX_POSTOPS_NUM];
+struct PostOpInjectParams {
+    PostOpInjectParam params[MAX_POSTOPS_NUM];
 };
+
+template<unsigned width>
+using share_vec = std::shared_ptr<coat::Vec<float, width>>;
 
 template <unsigned width>
-void inject_postops(std::vector<coat::Vec<float, width>*> vecs, PostOps* ops_param, JitInjectPostOps* inject_ops_param) {
+void inject_postops(int vecs_num, std::vector<share_vec<width>> vecs, PostOpStaticParams* ops_param, PostOpInjectParams* inject_ops_param) {
     for (auto i = 0; i < ops_param->num; i++) {
         switch (ops_param->ops[i].alg_type) {
-        case AlgType::Abs: {
-            coat::Vec<float, width> tmp;
-            std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
-                tmp = -0.f;
-                tmp -= *vec;
-                vec->max_(tmp);
-            });
-            break;
-        }
-        case AlgType::Add: {
-            if (inject_ops_param->params[i].layout == BinaryDataLayout::PerTensor) {
+            case AlgType::Abs: {
                 coat::Vec<float, width> tmp;
-                tmp.load(inject_ops_param->params[i].right_addrs[0], true);
-                std::for_each(vecs.begin(), vecs.end(), [&] (coat::Vec<float, width>* vec) {
-                    *vec += tmp;
+                std::for_each(vecs.begin(), vecs.begin() + vecs_num, [&] (share_vec<width> vec) {
+                    tmp = -0.f;
+                    tmp -= *vec;
+                    vec->max_(tmp);
                 });
-            } else if (inject_ops_param->params[i].layout == BinaryDataLayout::PerChannel) {
-                coat::Vec<float, width> tmp;
-                for (size_t j = 0; j < vecs.size(); j++) {
-                    // TODO
-                    auto addr = inject_ops_param->params[i].right_addrs[j];
-                    tmp.load(addr);
-                    *vecs[j] += tmp;
+                break;
+            }
+            case AlgType::Add: {
+                if (inject_ops_param->params[i].layout == BinaryDataLayout::PerTensor) {
+                    coat::Vec<float, width> tmp;
+                    tmp.load(inject_ops_param->params[i].right_addrs_base[0], true);
+                    std::for_each(vecs.begin(), vecs.begin() + vecs_num, [&] (share_vec<width> vec) {
+                        *vec += tmp;
+                    });
+                } else if (inject_ops_param->params[i].layout == BinaryDataLayout::PerChannel) {
+                    auto& base = inject_ops_param->params[i].right_addrs_base;
+                    for (size_t j = 0; j < vecs_num; j++) {
+                        auto idx = inject_ops_param->params[i].right_addrs_offset[j];
+                        *vecs[j] += base[idx];
+                    }
                 }
             }
         }
-    }
     }
 }
 
@@ -235,7 +237,7 @@ void jit_memset0(coat::Ptr<coat::Value<int8_t>> p, int size) {
 }
 }
 
-static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc) {
+static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc, float* ops = nullptr) {
 #define A(i, j) a[(j) + (i) * lda]
 #define B(i, j) b[(j) + (i) * ldb]
 #define C(i, j) c[(j) + (i) * ldc]
@@ -243,7 +245,7 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
     int i, j, p;
     for (i = 0; i < M; i++) {
         for (j = 0; j < N; j++) {
-            C(i, j) = 0;//j; // post ops, per-channel
+            C(i, j) = ops == nullptr ? 0 : ops[j];//j; // post ops, per-channel
             for (p = 0; p < K; p++) {
                 C(i, j) += A(i, p) * B(p, j);
             }
@@ -252,7 +254,7 @@ static void matmul_ref(float* a, float* b, float* c, int M, int N, int K, int ld
 }
 #define ROWS 8
 //using func_t = void (*)(float* a, float* b, float* c, int M, int N, int K, int lda, int ldb, int ldc);
-using func_t = void (*)(float* a, float* b, float* c, Jit::JitPostOps* param);
+using func_t = void (*)(float* a, float* b, float* c, Jit::PostOpRuntimeParams* param);
 template <unsigned width>
 func_t make_brgemm_pf(int M, int N, int K, int lda, int ldb, int ldc) {
     auto fn = coat::createFunction<func_t>("brgemm");
@@ -267,7 +269,7 @@ func_t make_brgemm_pf(int M, int N, int K, int lda, int ldb, int ldc) {
         lda /= sizeof(float);
         ldb /= sizeof(float);
         ldc /= sizeof(float);
-        auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
+        auto [j_a, j_b, j_c, j_post_runtime_params] = fn.getArguments("a", "b", "c", "ops");
         const int oc_num = 3;
         const int ur_num = ROWS; // hardcode 8 rows
         using share_vec = std::shared_ptr<coat::Vec<float, width>>;
@@ -409,9 +411,9 @@ func_t make_brgemm_pf(int M, int N, int K, int lda, int ldb, int ldc) {
 //         for m in ur
 //           for n in n_block
 //     for k_block_tail in ..K
-using func_m_t = void (*)(int m, float* a, float* b, float* c, Jit::JitPostOps* param);
+using func_m_t = void (*)(int m, float* a, float* b, float* c, Jit::PostOpRuntimeParams* post_runtime_params);
 template <unsigned width>
-func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int ur_num = ROWS, const int oc_num = 3) {
+func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, Jit::PostOpStaticParams* post_static_params, const int ur_num = ROWS, const int oc_num = 3) {
     auto fn = coat::createFunction<func_m_t>("brgemm");
     if constexpr (width == 16)
         fn.funcNode->frame().setAvx512Enabled();
@@ -420,6 +422,10 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
 #if ENABLE_DUMP
     fn.enableCodeDump();
 #endif
+    if ((N + width - 1) / width != oc_num) {
+        std::cout << "oc_num must be equal ceil(N/width)" << std::endl;
+        return nullptr;
+    }
     {
         bool has_n_tail = (N % width) != 0;
         if (has_n_tail) {
@@ -429,10 +435,9 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
         lda /= sizeof(float);
         ldb /= sizeof(float);
         ldc /= sizeof(float);
-        auto [j_M, j_a, j_b, j_c, j_ops] = fn.getArguments("m", "a", "b", "c", "ops");
-        using share_vec = std::shared_ptr<coat::Vec<float, width>>;
-        std::vector<share_vec> j_weight(oc_num);
-        std::vector<share_vec> j_result;
+        auto [j_M, j_a, j_b, j_c, j_post_runtime_params] = fn.getArguments("m", "a", "b", "c", "ops");
+        std::vector<Jit::share_vec<width>> j_weight(oc_num);
+        std::vector<Jit::share_vec<width>> j_result;
         for (int i = 0; i < oc_num; i++) {
             j_weight[i] = std::make_shared<coat::Vec<float, width>>();
         }
@@ -441,6 +446,38 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
         }
         coat::Vec<float, width> j_data;
 
+        // postops
+        Jit::PostOpInjectParams inject_postops_param;
+        using share_p = std::shared_ptr<coat::Ptr<coat::Value<float>>>;
+        std::vector<share_p> post_ops_runtime_addrs;
+        // extract all second address from parameter 'ops' of jit func
+        for (auto i = 0; i < post_static_params->num; i++) {
+            if (post_static_params->ops[i].alg_type >= Jit::AlgType::Add) {
+                auto params = j_post_runtime_params.get_value<Jit::PostOpRuntimeParams::member_params>("params");
+                auto addr = params[i].get_value<Jit::PostOpRuntimeParam::member_right_addr>("addr");
+                // TODO: ptr has no 'operator= addr'
+                auto op = std::make_shared<share_p::element_type>(addr);
+                post_ops_runtime_addrs.push_back(op);
+            } else {
+                auto op = std::make_shared<share_p::element_type>();
+                // no need, just a placeholder
+                post_ops_runtime_addrs.push_back(op);
+            }
+        }
+        // compute all address for binary ops
+        auto prepare_inject_param = [&] (int ur_num, int oc_num) {
+            for (auto i = 0; i < post_static_params->num; i++) {
+                if (post_static_params->ops[i].alg_type >= Jit::AlgType::Add && post_static_params->ops[i].binary_param.layout != Jit::BinaryDataLayout::PerTensor) {
+                    auto& ptr = *post_ops_runtime_addrs[i];
+                    inject_postops_param.params[i].right_addrs_offset.clear();
+                    inject_postops_param.params[i].layout = post_static_params->ops[i].binary_param.layout;
+                    inject_postops_param.params[i].right_addrs_base.reg = ptr.reg;
+                    for (int j = 0; j < ur_num; j++)
+                        for (int k = 0; k < oc_num; k++)
+                            inject_postops_param.params[i].right_addrs_offset.push_back(k * width);
+                }
+            }
+        };
         // several lines fall in one page
         int m_group = 1;
         if (lda < 128) m_group = 16;
@@ -466,7 +503,18 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
                 }
             }
         };
-
+        auto save_post = [&] (int ur_num, int oc_num, bool has_n_tail, int ldc, coat::wrapper_type<float *>& j_c) {
+            prepare_inject_param(ur_num, oc_num);
+            Jit::inject_postops<width>(ur_num * oc_num, j_result, post_static_params, &inject_postops_param);
+            for (int m = 0; m < ur_num; m++) {
+                for (int n = 0; n < oc_num - has_n_tail; n++) {
+                    j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
+                }
+                if (has_n_tail) {
+                    j_result[m * oc_num + oc_num - 1]->kstore(j_c[m * ldc + (oc_num - 1) * width], asmjit::x86::k1);
+                }
+            }
+        };
         auto j_M_block = j_M;
         j_M_block %= (ur_num * m_group);
         j_M_block = j_M - j_M_block;
@@ -508,14 +556,7 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
                 // K tail
                 if (K % width != 0)
                     fma(width, ur_num, K % width, oc_num, j_a_row, j_b_row, lda * m_group, ldb);
-                for (int m = 0; m < ur_num; m++) {
-                    for (int n = 0; n < oc_num - has_n_tail; n++) {
-                        j_result[m * oc_num + n]->store(j_cc[m * ldc * m_group + n * width]);
-                    }
-                    if (has_n_tail) {
-                        j_result[m * oc_num + oc_num - 1]->kstore(j_cc[m * ldc * m_group + (oc_num - 1) * width], asmjit::x86::k1);
-                    }
-                }
+                save_post(ur_num, oc_num, has_n_tail, ldc * m_group, j_cc);
             });
         });
  
@@ -552,16 +593,7 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
                 // K tail
                 if (K % width != 0)
                     fma(width, ur_num, K % width, oc_num, j_a_row, j_b_row, lda, ldb);
-                for (int m = 0; m < ur_num; m++) {
-                    for (int n = 0; n < oc_num; n++) {
-                        for (int n = 0; n < oc_num - has_n_tail; n++) {
-                            j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
-                        }
-                        if (has_n_tail) {
-                            j_result[m * oc_num + oc_num - 1]->kstore(j_c[m * ldc + (oc_num - 1) * width], asmjit::x86::k1);
-                        }
-                    }
-                }
+                save_post(ur_num, oc_num, has_n_tail, ldc, j_c);
             });
             // tail: handle not enough ur_num tail
             // TODO: try jump table fma(7/6/5/.../1)
@@ -587,16 +619,7 @@ func_m_t make_brgemm_stride(int N, int K, int lda, int ldb, int ldc, const int u
                     // K tail
                     if (K % width != 0)
                         fma(width, ur_num, K % width, oc_num, j_a_row, j_b_row, lda, ldb);
-                    for (int m = 0; m < ur_num; m++) {
-                        for (int n = 0; n < oc_num; n++) {
-                            for (int n = 0; n < oc_num - has_n_tail; n++) {
-                                j_result[m * oc_num + n]->store(j_c[m * ldc + n * width]);
-                            }
-                            if (has_n_tail) {
-                                j_result[m * oc_num + oc_num - 1]->kstore(j_c[m * ldc + (oc_num - 1) * width], asmjit::x86::k1);
-                            }
-                        }
-                    }
+                    save_post(ur_num, oc_num, has_n_tail, ldc, j_c);
                 };
                 asmjit::Label L_End = _CC.newLabel();
                 for (int i = 1; i < ur_num; i++) {
@@ -632,7 +655,7 @@ func_t make_brgemm_org(int M, int N, int K, int lda, int ldb, int ldc) {
         lda /= sizeof(float);
         ldb /= sizeof(float);
         ldc /= sizeof(float);
-        auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
+        auto [j_a, j_b, j_c, j_post_runtime_params] = fn.getArguments("a", "b", "c", "ops");
         const int oc_num = 3;
         const int ur_num = ROWS; // hardcode 8 rows
         using share_vec = std::shared_ptr<coat::Vec<float, width>>;
@@ -765,7 +788,7 @@ func_t make_block(int M, int N, int K, int lda, int ldb, int ldc) {
         lda /= sizeof(float);
         ldb /= sizeof(float);
         ldc /= sizeof(float);
-        auto [j_a, j_b, j_c, j_ops] = fn.getArguments("a", "b", "c", "ops");
+        auto [j_a, j_b, j_c, j_post_runtime_params] = fn.getArguments("a", "b", "c", "ops");
         const int oc_num = 3;
         const int ur_num = ROWS; // hardcode 8 rows
         using share_vec = std::shared_ptr<coat::Vec<float, width>>;
@@ -867,13 +890,13 @@ void test_brgemm_pf(int M, int N, int K) {
     std::iota(a.begin(), a.end(), 1.0f);
     std::iota(b.begin(), b.end(), 2.0f);
 
-    Jit::PostOps post_ops;
+    Jit::PostOpStaticParams post_ops;
     post_ops.num = 0;
     post_ops.ops[0].alg_type = Jit::AlgType::Abs;
     post_ops.ops[1].alg_type = Jit::AlgType::Add;
     post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
     auto f = make_brgemm_pf<16>(M, N, K, K * 4, N * 4, N * 4);
-    Jit::JitPostOps ops;
+    Jit::PostOpRuntimeParams ops;
     ops.params[1].right_addr = d.data();
     
     //static _declspec(align(1024)) float xa[2560000*288] = {0};
@@ -909,7 +932,7 @@ void test_brgemm_pf(int M, int N, int K) {
 //    std::iota(a.begin(), a.end(), 1.0f);
 //    std::iota(b.begin(), b.end(), 2.0f);
 //
-//    Jit::PostOps post_ops;
+//    Jit::PostOpStaticParams post_ops;
 //    post_ops.num = 0;
 //    post_ops.ops[0].alg_type = Jit::AlgType::Abs;
 //    post_ops.ops[1].alg_type = Jit::AlgType::Add;
@@ -952,13 +975,13 @@ void test_brgemm_org(int M, int N, int K) {
     std::iota(a.begin(), a.end(), 1.0f);
     std::iota(b.begin(), b.end(), 2.0f);
 
-    Jit::PostOps post_ops;
+    Jit::PostOpStaticParams post_ops;
     post_ops.num = 0;
     post_ops.ops[0].alg_type = Jit::AlgType::Abs;
     post_ops.ops[1].alg_type = Jit::AlgType::Add;
     post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
     auto f = make_brgemm_org<16>(M, N, K, K * 4, N * 4, N * 4);
-    Jit::JitPostOps ops;
+    Jit::PostOpRuntimeParams ops;
     ops.params[1].right_addr = d.data();
 
     //static _declspec(align(1024)) float xa[2560000*288] = {0};
@@ -1017,13 +1040,13 @@ void test_block(int M, int N, int K) {
     std::iota(a.begin(), a.end(), 1.0f);
     std::iota(b.begin(), b.end(), 2.0f);
 
-    Jit::PostOps post_ops;
+    Jit::PostOpStaticParams post_ops;
     post_ops.num = 0;
     post_ops.ops[0].alg_type = Jit::AlgType::Abs;
     post_ops.ops[1].alg_type = Jit::AlgType::Add;
     post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
     auto f = make_block<16>(M, N, K, 16 * 4, 16 * 4, 16 * 4);
-    Jit::JitPostOps ops;
+    Jit::PostOpRuntimeParams ops;
     ops.params[1].right_addr = d.data();
     std::vector<float> a_block, b_block, c_block(M * N);
     reorder_nhwc2block(a, a_block, M, K, 16);
@@ -1056,23 +1079,25 @@ void test_block(int M, int N, int K) {
 void test_stride_func(int M, int N, int K) {
     // postops, perchannel
     std::vector<float> d(N, 0);
-    std::iota(d.begin(), d.end(), 0.0f);
+    std::iota(d.begin(), d.end(), 10000000.0f);
+    d[1] += d[0];
+    d[2] += d[1];
 
     std::vector<float> a(M * K, 2), b(K * N, 1), c(M * N), c_ref(M * N);
     std::iota(a.begin(), a.end(), 1.0f);
     std::iota(b.begin(), b.end(), 2.0f);
 
-    Jit::PostOps post_ops;
-    post_ops.num = 0;
+    Jit::PostOpStaticParams post_ops;
+    post_ops.num = 2;
     post_ops.ops[0].alg_type = Jit::AlgType::Abs;
     post_ops.ops[1].alg_type = Jit::AlgType::Add;
     post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
-    auto f = make_brgemm_stride<16>(N, K, K * 4, N * 4, N * 4);
-    Jit::JitPostOps ops;
+    auto f = make_brgemm_stride<16>(N, K, K * 4, N * 4, N * 4, &post_ops);
+    Jit::PostOpRuntimeParams ops;
     ops.params[1].right_addr = d.data();
 
-    f(M, a.data(), b.data(), c.data(), nullptr);
-    matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N);
+    f(M, a.data(), b.data(), c.data(), &ops);
+    matmul_ref(a.data(), b.data(), c_ref.data(), M, N, K, K, N, N, d.data());
     if (c == c_ref) {
         printf("M %d, N %d, K %d: correct \n", M, N, K);
     }
@@ -1094,13 +1119,13 @@ void test_stride_func(int M, int N, int K) {
 }
 
 void test_stride_func_dyn_m(int M, int N, int K) {
-    Jit::PostOps post_ops;
+    Jit::PostOpStaticParams post_ops;
     post_ops.num = 0;
     post_ops.ops[0].alg_type = Jit::AlgType::Abs;
     post_ops.ops[1].alg_type = Jit::AlgType::Add;
     post_ops.ops[1].binary_param.layout = Jit::BinaryDataLayout::PerChannel;
-    auto f = make_brgemm_stride<16>(N, K, K * 4, N * 4, N * 4);
-    Jit::JitPostOps ops;
+    auto f = make_brgemm_stride<16>(N, K, K * 4, N * 4, N * 4, &post_ops);
+    Jit::PostOpRuntimeParams ops;
 
     // postops, perchannel
     std::vector<float> d(N, 0);
@@ -1114,8 +1139,8 @@ void test_stride_func_dyn_m(int M, int N, int K) {
         std::vector<float> a(m * K, 2), c(m * N), c_ref(m * N);
         std::iota(a.begin(), a.end(), 1.0f);
 
-        f(m, a.data(), b.data(), c.data(), nullptr);
-        matmul_ref(a.data(), b.data(), c_ref.data(), m, N, K, K, N, N);
+        f(m, a.data(), b.data(), c.data(), &ops);
+        matmul_ref(a.data(), b.data(), c_ref.data(), m, N, K, K, N, N, d.data());
         if (c == c_ref) {
             printf("M %d, N %d, K %d: correct \n", m, N, K);
         }
