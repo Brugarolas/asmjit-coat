@@ -27,6 +27,7 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 
 	static_assert(sizeof(T)==1 || sizeof(T)==2 || sizeof(T)==4 || sizeof(T)==8,
 		"only plain arithmetic types supported of sizes: 1, 2, 4 or 8 bytes");
+	// TODO why not is_integral, since float points are not supported
 	static_assert(std::is_signed_v<T> || std::is_unsigned_v<T>,
 		"only plain signed or unsigned arithmetic types supported");
 
@@ -197,7 +198,14 @@ struct Value<::asmjit::x86::Compiler,T> final : public ValueBase<::asmjit::x86::
 		return *this;
 	}
 
-	// special handling of bit tests, for convenience and performance
+  	Value &operator=(Condition<F> &cond){
+		cond.compare();
+		cond.setbyte(reg);
+		return *this;
+  	}
+
+
+  // special handling of bit tests, for convenience and performance
 	void bit_test(const Value &bit, Label<F> &label, bool jump_on_set=true) const {
 		cc.bt(reg, bit);
 		if(jump_on_set){

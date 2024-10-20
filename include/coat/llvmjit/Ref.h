@@ -30,6 +30,15 @@ struct Ref<LLVMBuilders,T> {
 		return *this;
 	}
 
+	// TODO because copy assignment operator is implicitly deleted
+	//  Things like *ptr1 = *ptr2 won't work without copy assignment
+	Ref &operator=(const Ref &other) {
+	  T tmp(cc, "tmp");
+	  tmp = other;
+	  *this = tmp;
+	  return *this;
+	}
+
 	// operators creating temporary virtual registers
 	LLVMJIT_OPERATORS_WITH_TEMPORARIES(T)
 
@@ -37,10 +46,10 @@ struct Ref<LLVMBuilders,T> {
 	// swap sides of operands and comparison, not needed for assembly, but avoids code duplication in wrapper
 	Condition<F> operator==(const T &other) const { return other==*this; }
 	Condition<F> operator!=(const T &other) const { return other!=*this; }
-	Condition<F> operator< (const T &other) const { return other>=*this; }
-	Condition<F> operator<=(const T &other) const { return other> *this; }
-	Condition<F> operator> (const T &other) const { return other<=*this; }
-	Condition<F> operator>=(const T &other) const { return other< *this; }
+	Condition<F> operator< (const T &other) const { return other> *this; }
+	Condition<F> operator<=(const T &other) const { return other>=*this; }
+	Condition<F> operator> (const T &other) const { return other< *this; }
+	Condition<F> operator>=(const T &other) const { return other<=*this; }
 	//TODO: possible without temporary: cmp m32 imm32, complicates Condition
 	Condition<F> operator==(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp==constant; }
 	Condition<F> operator!=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp!=constant; }

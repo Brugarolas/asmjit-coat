@@ -66,12 +66,19 @@ struct Value<LLVMBuilders,T> final : public ValueBase<LLVMBuilders> {
 	}
 	// move, just take the stack memory
 	Value(const Value &&other) : ValueBase(std::move(other)) {}
-	// move assign, just take stack memory location, copy of wrapper object
+
+  	// move assign, just take stack memory location, copy of wrapper object
 	Value &operator=(const Value &&other){ memreg = other.memreg; return *this; }
 
 	// copy ctor for ref
 	Value(const Ref<F,Value> &other) : Value(other.cc) {
 		*this = other;
+	}
+
+  	Value &operator=(Condition<F> &cond){
+	  	cond.compare();
+	  	*this = cond.cmp_result;
+	  	return *this;
 	}
 
 	// explicit type conversion, assignment
@@ -111,7 +118,7 @@ struct Value<LLVMBuilders,T> final : public ValueBase<LLVMBuilders> {
 	template<typename O>
 	Value<F,O> widen(){
 		static_assert(sizeof(O) > sizeof(T), "widening conversion called on wrong types");
-		Value<F,O> tmp(cc.ir, "widentmp");
+		Value<F,O> tmp(cc, "widentmp");
 		if constexpr(std::is_signed_v<T>){
 			tmp.store( cc.ir.CreateSExt(load(), tmp.type()) );
 		}else{

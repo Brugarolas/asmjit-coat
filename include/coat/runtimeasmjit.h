@@ -2,6 +2,7 @@
 #define COAT_RUNTIMEASMJIT_HPP_
 
 #include <asmjit/asmjit.h>
+#include <string>
 #if defined(PROFILING_ASSEMBLY) || defined(PROFILING_SOURCE)
 #	include <asmjit-utilities/perf/jitdump.h>
 #endif
@@ -30,7 +31,6 @@ struct runtimeasmjit{
 		jd.close();
 	}
 #endif
-
 	template<typename FnPtr>
 	Function<runtimeasmjit,FnPtr> createFunction(const char *funcName="func"){
 		return Function<runtimeasmjit,FnPtr>(*this, funcName);

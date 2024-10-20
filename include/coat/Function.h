@@ -14,17 +14,17 @@ template<typename F, typename T> struct Struct;
 
 template<typename F, typename T>
 using reg_type = std::conditional_t<std::is_pointer_v<T>,
-						Ptr<F,Value<F,std::remove_cv_t<std::remove_pointer_t<T>>>>,
+						Ptr<F,std::remove_cv_t<T>>,
 						Value<F,std::remove_cv_t<T>>
 				>;
 
 // decay - converts array types to pointer types
 template<typename F, typename T>
-using wrapper_type = std::conditional_t<std::is_arithmetic_v<std::remove_pointer_t<std::decay_t<T>>>,
+using wrapper_type = std::conditional_t<std::is_pointer_v<std::remove_pointer_t<std::decay_t<T>>>
+        || std::is_arithmetic_v<std::remove_pointer_t<std::decay_t<T>>>,
 						reg_type<F,std::decay_t<T>>,
 						Struct<F,std::remove_cv_t<std::remove_pointer_t<T>>>
 					>;
-
 
 template<typename T, typename F>
 struct Function;

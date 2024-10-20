@@ -50,6 +50,15 @@ struct Ref<::asmjit::x86::Compiler,T> {
 		}
 		return *this;
 	}
+
+	// TODO because copy assignment operator is implicitly deleted
+	//  Things like *ptr1 = *ptr2 won't work without copy assignment
+	Ref &operator=(const Ref &other) {
+		T temp(cc, "tmp");
+		temp = other;
+		*this = temp;
+		return *this;
+	}
 	// arithmetic + assignment skipped for now
 
 	// operators creating temporary virtual registers
@@ -59,10 +68,10 @@ struct Ref<::asmjit::x86::Compiler,T> {
 	// swap sides of operands and comparison, not needed for assembly, but avoids code duplication in wrapper
 	Condition<F> operator==(const T &other) const { return other==*this; }
 	Condition<F> operator!=(const T &other) const { return other!=*this; }
-	Condition<F> operator< (const T &other) const { return other>=*this; }
-	Condition<F> operator<=(const T &other) const { return other> *this; }
-	Condition<F> operator> (const T &other) const { return other<=*this; }
-	Condition<F> operator>=(const T &other) const { return other< *this; }
+	Condition<F> operator< (const T &other) const { return other> *this; }
+	Condition<F> operator<=(const T &other) const { return other>=*this; }
+	Condition<F> operator> (const T &other) const { return other< *this; }
+	Condition<F> operator>=(const T &other) const { return other<=*this; }
 	//TODO: possible without temporary: cmp m32 imm32, complicates Condition
 	Condition<F> operator==(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp==constant; }
 	Condition<F> operator!=(int constant) const { T tmp(cc, "tmp"); tmp = *this; return tmp!=constant; }
