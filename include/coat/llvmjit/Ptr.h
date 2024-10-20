@@ -10,11 +10,20 @@ namespace coat {
 template<class T>
 struct Ptr<LLVMBuilders,T> {
 	using F = LLVMBuilders;
-	using value_type = typename T::value_type;
+    using value_type = std::remove_pointer_t<T>;
 	using value_base_type = ValueBase<F>;
-	using mem_type = Ref<F,T>;
+//	using mem_type = Ref<F,T>;
+    // TODO *pptr2 = ptr1 should result in **pptr2 = *ptr1
+    //  A solution can be adding an specific Ref for pointer type.
+    //  This is necessary because pointers don't support <, <=, >, >=
+    using mem_type = std::conditional_t<std::is_pointer_v<value_type>,
+            Ptr<F, value_type>, Ref<F,Value<F, value_type>>
+    >;
 
-	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of register wrappers");
+//	static_assert(std::is_base_of_v<value_base_type,T>, "pointer type only of register wrappers");
+    // Assert that T is a pointer
+    // TODO assert that is pointer to integer
+    static_assert(std::is_pointer<T>::value, "Only pointer types supported");
 
 	LLVMBuilders &cc;
 	llvm::Value *memreg;
@@ -67,6 +76,11 @@ struct Ptr<LLVMBuilders,T> {
 	// move, just take the stack memory
 	Ptr(const Ptr &&other) : cc(other.cc), memreg(other.memreg) {}
 
+    // For when initalizing with references
+    Ptr(F &cc, llvm::Value *mem) : Ptr(cc) {
+        store(cc.ir.CreateLoad(mem, "load"));
+    }
+
 	//FIXME: takes any type
 	Ptr &operator=(llvm::Value *val){ store( val ); return *this; }
 
@@ -98,6 +112,12 @@ struct Ptr<LLVMBuilders,T> {
 	mem_type operator[](const value_base_type &idx){
 		return { cc, cc.ir.CreateGEP(load(), idx.load()) };
 	}
+
+    // TODO hack to work allow setting vector of pointers (*pptr1 = ptr2)
+    Ref<F, Ptr<F, value_type>> bracket(const value_base_type &idx) {
+      return { cc, cc.ir.CreateGEP(load(), idx.load()) };
+    }
+
 	// indexing with constant -> use offset
 	mem_type operator[](size_t idx){
 		return { cc, cc.ir.CreateGEP(load(), llvm::ConstantInt::get(llvm::Type::getInt64Ty(cc.ir.getContext()), idx)) };
@@ -172,16 +192,17 @@ struct Ptr<LLVMBuilders,T> {
 	// comparisons
 	Condition<F> operator==(const Ptr &other) const { return {cc, memreg, other.memreg, ConditionFlag::e};  }
 	Condition<F> operator!=(const Ptr &other) const { return {cc, memreg, other.memreg, ConditionFlag::ne}; }
+	Condition<F> operator< (const Ptr &other) const { return {cc, memreg, other.memreg, ConditionFlag::l}; }
 };
 
 
 template<typename dest_type, typename src_type>
-Ptr<LLVMBuilders,Value<LLVMBuilders,std::remove_pointer_t<dest_type>>>
-cast(const Ptr<LLVMBuilders,Value<LLVMBuilders,src_type>> &src){
+Ptr<LLVMBuilders,dest_type>
+cast(const Ptr<LLVMBuilders,src_type> &src){
 	static_assert(std::is_pointer_v<dest_type>, "a pointer type can only be casted to another pointer type");
 
 	// create new pointer
-	Ptr<LLVMBuilders,Value<LLVMBuilders,std::remove_pointer_t<dest_type>>> res(src.cc);
+	Ptr<LLVMBuilders,dest_type> res(src.cc);
 	// cast between pointer types
 	res.store(
 		src.cc.ir.CreateBitCast(

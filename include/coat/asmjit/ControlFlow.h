@@ -157,6 +157,7 @@ void for_each(::asmjit::x86::Compiler &cc, Ptr &begin, Ptr &end, Fn &&body
 
 	// loop over all elements
 	cc.bind(l_loop);
+	    // TODO auto?
 		typename Ptr::mem_type vr_ele = *begin;
 		body(vr_ele);
 #ifdef PROFILING_SOURCE
@@ -266,7 +267,7 @@ FunctionCall(::asmjit::x86::Compiler &cc, const InternalFunction<runtimeasmjit,R
 
 // pointer difference in bytes, no pointer arithmetic (used by Ptr operators)
 template<typename T>
-Value<::asmjit::x86::Compiler,size_t> distance(::asmjit::x86::Compiler &cc, Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,T>> &beg, Ptr<::asmjit::x86::Compiler,Value<::asmjit::x86::Compiler,T>> &end){
+Value<::asmjit::x86::Compiler,size_t> distance(::asmjit::x86::Compiler &cc, Ptr<::asmjit::x86::Compiler,T> &beg, Ptr<::asmjit::x86::Compiler,T> &end){
 	Value<::asmjit::x86::Compiler,size_t> vr_ret(cc, "distance");
 	cc.mov(vr_ret, end);
 	cc.sub(vr_ret, beg);

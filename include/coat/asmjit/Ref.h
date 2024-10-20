@@ -50,6 +50,15 @@ struct Ref<::asmjit::x86::Compiler,T> {
 		}
 		return *this;
 	}
+
+	// TODO because copy assignment operator is implicitly deleted
+	//  Things like *ptr1 = *ptr2 won't work without copy assignment
+	Ref &operator=(const Ref &other) {
+		T temp(cc, "tmp");
+		temp = other;
+		*this = temp;
+		return *this;
+	}
 	// arithmetic + assignment skipped for now
 
 	// operators creating temporary virtual registers
