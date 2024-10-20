@@ -1,20 +1,22 @@
-#ifndef COAT_LABEL_H_
-#define COAT_LABEL_H_
+#pragma once
+
+#include "Global.h"
 
 namespace coat {
 
-template<class CC>
-struct Label;
+struct Label final {
+    asmjit::Label label;
+
+    Label() : label(_CC.newLabel()) {}
+
+    NONCOPYABLE(Label);
+
+    void bind() {
+        _CC.bind(label);
+    }
+
+    operator const asmjit::Label&() const { return label; }
+    operator       asmjit::Label&()       { return label; }
+};
 
 } // namespace
-
-#ifdef ENABLE_ASMJIT
-#  include "asmjit/Label.h"
-#endif
-
-#ifdef ENABLE_LLVMJIT
-#  include "llvmjit/Label.h"
-#endif
-
-
-#endif
