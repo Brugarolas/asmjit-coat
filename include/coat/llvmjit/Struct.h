@@ -45,7 +45,7 @@ struct Struct<LLVMBuilders,T>
 		}else{
 			di_var = cc.dbg.createAutoVariable(cc.debugScope, name, cc.debugScope->getFile(), line, getDebugType<struct_type*>(cc.dbg, cc.debugScope));
 		}
-		cc.dbg.insertDeclare(memreg, di_var, cc.dbg.createExpression(), llvm::DebugLoc::get(line, 0, cc.debugScope), cc.ir.GetInsertBlock());
+		cc.dbg.insertDeclare(memreg, di_var, cc.dbg.createExpression(), llvm::DILocation::get(cc.ir.getContext(), line, 0, cc.debugScope), cc.ir.GetInsertBlock());
 #endif
 	}
 	Struct(F &cc, T *val, const char *name="") : Struct(cc, name) {
@@ -102,7 +102,7 @@ struct Struct<LLVMBuilders,T>
 		using type = std::tuple_element_t<I, typename T::types>;
 #ifdef LLVMJIT_DEBUG
 		wrapper_type<F,type> ret(cc, name, false, file, line);
-		cc.ir.SetCurrentDebugLocation(llvm::DebugLoc::get(line, 0, cc.debugScope));
+		cc.ir.SetCurrentDebugLocation(llvm::DILocation::get(cc.ir.getContext(), line, 0, cc.debugScope));
 #else
 		wrapper_type<F,type> ret(cc, name);
 #endif

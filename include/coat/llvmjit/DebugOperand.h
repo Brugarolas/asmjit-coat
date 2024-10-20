@@ -112,7 +112,7 @@ struct DebugOperand2 {
 
 
 	template<typename T> using D2 = DebugOperand2<T>;
-#	define DL2 cc.ir.SetCurrentDebugLocation(llvm::DebugLoc::get(other.line, 0, cc.debugScope));
+#	define DL2 cc.ir.SetCurrentDebugLocation(llvm::DILocation::get(cc.ir.getContext(), other.line, 0, cc.debugScope));
 #	define OP2 other.operand
 #else
 	// no debugging support

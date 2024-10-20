@@ -51,7 +51,7 @@ struct Ptr<LLVMBuilders,T> {
 		}else{
 			dbgvar = cc.dbg.createAutoVariable(cc.debugScope, name, cc.debugScope->getFile(), line, getDebugType<value_type*>(cc.dbg, cc.debugScope));
 		}
-		dbgdecl = static_cast<llvm::IntrinsicInst*>(cc.dbg.insertDeclare(memreg, dbgvar, cc.dbg.createExpression(), llvm::DebugLoc::get(line, 0, cc.debugScope), cc.ir.GetInsertBlock()));
+		dbgdecl = static_cast<llvm::IntrinsicInst*>(cc.dbg.insertDeclare(memreg, dbgvar, cc.dbg.createExpression(), llvm::DILocation::get(cc.ir.getContext(), line, 0, cc.debugScope), cc.ir.GetInsertBlock()));
 #endif
 	}
 	Ptr(F &cc, value_type *val, const char *name="") : Ptr(cc, name) {

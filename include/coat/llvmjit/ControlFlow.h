@@ -153,7 +153,7 @@ void for_each(LLVMBuilders &cc, Ptr &begin, const Ptr &end, Body &&body
 	llvm::BasicBlock *bb_after = llvm::BasicBlock::Create(cc.ir.getContext(), "after", fn);
 
 #ifdef LLVMJIT_DEBUG
-	cc.ir.SetCurrentDebugLocation(llvm::DebugLoc::get(line, 0, cc.debugScope));
+	cc.ir.SetCurrentDebugLocation(llvm::DILocation::get(cc.ir.getContext(), line, 0, cc.debugScope));
 #endif
 	// check if even one iteration
 	jump(cc, begin == end, bb_after, bb_loop);

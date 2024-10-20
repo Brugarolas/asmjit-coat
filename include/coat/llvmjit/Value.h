@@ -47,7 +47,7 @@ struct Value<LLVMBuilders,T> final : public ValueBase<LLVMBuilders> {
 		}else{
 			di_var = cc.dbg.createAutoVariable(cc.debugScope, name, cc.debugScope->getFile(), line, getDebugType<value_type>(cc.dbg, cc.debugScope));
 		}
-		cc.dbg.insertDeclare(memreg, di_var, cc.dbg.createExpression(), llvm::DebugLoc::get(line, 0, cc.debugScope), cc.ir.GetInsertBlock());
+		cc.dbg.insertDeclare(memreg, di_var, cc.dbg.createExpression(), llvm::DILocation::get(cc.ir.getContext(), line, 0, cc.debugScope), cc.ir.GetInsertBlock());
 #endif
 	}
 
