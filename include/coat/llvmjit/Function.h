@@ -180,7 +180,7 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 				llvm::Function *fn = cc.ir.GetInsertBlock()->getParent();
 				llvm::Function::arg_iterator arguments = fn->arg_begin();
 				// set debug location for all assignments
-				cc.ir.SetCurrentDebugLocation(llvm::DebugLoc::get(line, 0, cc.debugScope));
+				cc.ir.SetCurrentDebugLocation(llvm::DILocation::get(cc.ir.getContext(), line, 0, cc.debugScope));
 				// (tuple_at_0 = (llvm::Value*)args++), (tuple_at_1 = (llvm::Value*)args++), ... ;
 				((args = (llvm::Value*)arguments++), ...);
 			},
@@ -239,7 +239,7 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 					llvm::Constant *c = llvm::cast<llvm::ConstantAsMetadata>(md->getOperand(0))->getValue();
 					uint64_t fnptr = llvm::cast<llvm::ConstantInt>(c)->getZExtValue();
 					// add function address as absolute symbol
-					cantFail(jit.J->define(
+					llvm::cantFail(jit.J->getMainJITDylib().define(
 						llvm::orc::absoluteSymbols({{
 							jit.J->mangleAndIntern(f.getName()),
 							llvm::JITEvaluatedSymbol::fromPointer((void*)fnptr)
@@ -250,9 +250,9 @@ struct Function<runtimellvmjit,R(*)(Args...)>{
 		}
 
 		llvm::orc::ThreadSafeModule tsm(std::move(M), std::move(context));
-		cantFail(jit.J->addIRModule(std::move(tsm)));
+        llvm::cantFail(jit.J->addIRModule(std::move(tsm)));
 		// Look up the JIT'd function
-		llvm::JITEvaluatedSymbol SumSym = cantFail(jit.J->lookup(name));
+		llvm::JITEvaluatedSymbol SumSym = llvm::cantFail(jit.J->lookup(name));
 		// get function ptr
 		return (func_type)SumSym.getAddress();
 	}
